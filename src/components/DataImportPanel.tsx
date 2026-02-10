@@ -77,7 +77,7 @@ export function DataImportPanel() {
             disabled={loading || kind === 'sample'}
             className="px-4 py-2 rounded bg-transparent border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Grupo Cedros
+            Grupo Riba
           </button>
         </div>
       </div>
