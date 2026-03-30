@@ -74,6 +74,14 @@ All chart components (`TopContributors`, `ActivityHeatmap`, `WordCloud`, etc.) u
 | `whatsapp-analytics-filters` | FilterContext — persists selected user filters |
 | `theme` | ThemeContext — persists light/dark preference |
 
+## Deployment
+
+Deployed on Vercel. `vercel.json` has a single rewrite rule (`/(.*)` → `/index.html`) for SPA client-side routing. No environment variables required — the app is fully client-side.
+
+## Planned Changes
+
+`SPEC.md` in project root tracks upcoming feature removals (User Details Panel, Activity Heatmap, Response Time, Word Cloud, Conversation Threads) and additions (least participative users chart, message interval analysis, inactive user podium). Consult it before major refactors.
+
 ## Tailwind Configuration
 
 Dark mode uses `class` strategy. Theme toggling adds/removes `dark` class on `<html>`.

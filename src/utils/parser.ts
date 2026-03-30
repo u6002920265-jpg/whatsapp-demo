@@ -1,6 +1,5 @@
-import type { Message, SummaryData, UserStats, HeatmapCell, WordFrequency } from '../types';
+import type { Message, SummaryData, UserStats, MessageIntervalData } from '../types';
 import { parseDate } from './dateUtils';
-import { PORTUGUESE_STOPWORDS } from './stopwords-pt';
 
 const PHONE_TO_NAME: Record<string, string> = {
   '+351 936 586 711': 'Nuno Motta',
@@ -86,7 +85,6 @@ const SYSTEM_PATTERNS = [
 // WhatsApp exports mentions using the LRM-marked format: @⁨Name⁩.
 // We intentionally do NOT match plain "@" to avoid treating emails (e.g. name@gmail.com) as mentions.
 const MENTION_PATTERN = /@⁨([^⁩]+)⁩/g;
-const URL_PATTERN = /https?:\/\/[^\s]+/gi;
 
 export function parseWhatsAppChat(content: string, onProgress?: (current: number, total: number) => void): Message[] {
   const lines = content.split('\n');
@@ -248,86 +246,28 @@ export function calculateUserStats(messages: Message[]): UserStats[] {
   return Array.from(stats.values()).sort((a, b) => b.messageCount - a.messageCount);
 }
 
-export function calculateHeatmap(messages: Message[]): HeatmapCell[] {
+export function calculateMessageIntervals(messages: Message[]): MessageIntervalData[] {
   const nonSystemMessages = messages.filter(m => !m.isSystemMessage);
-  const cells: HeatmapCell[] = [];
-  const cellData = new Map<string, { count: number; users: Map<string, number> }>();
+  const byUser = new Map<string, Date[]>();
 
-  for (let day = 0; day < 7; day++) {
-    for (let hour = 0; hour < 24; hour++) {
-      const key = `${day}-${hour}`;
-      cellData.set(key, { count: 0, users: new Map() });
+  for (const m of nonSystemMessages) {
+    if (!byUser.has(m.sender)) byUser.set(m.sender, []);
+    byUser.get(m.sender)!.push(m.timestamp);
+  }
+
+  const results: MessageIntervalData[] = [];
+
+  for (const [name, timestamps] of byUser) {
+    if (timestamps.length < 2) continue;
+    timestamps.sort((a, b) => a.getTime() - b.getTime());
+    let totalGap = 0;
+    for (let i = 1; i < timestamps.length; i++) {
+      totalGap += (timestamps[i].getTime() - timestamps[i - 1].getTime()) / 1000;
     }
+    results.push({ name, avgInterval: totalGap / (timestamps.length - 1) });
   }
 
-  nonSystemMessages.forEach(m => {
-    const day = m.timestamp.getDay();
-    const hour = m.timestamp.getHours();
-    const key = `${day}-${hour}`;
-    const cell = cellData.get(key)!;
-    cell.count++;
-    cell.users.set(m.sender, (cell.users.get(m.sender) || 0) + 1);
-  });
-
-  cellData.forEach((data, key) => {
-    const [day, hour] = key.split('-').map(Number);
-    const topUsers = Array.from(data.users.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([name, count]) => ({ name, count }));
-
-    cells.push({
-      dayOfWeek: day,
-      hour,
-      count: data.count,
-      topUsers,
-    });
-  });
-
-  return cells;
+  return results.sort((a, b) => b.avgInterval - a.avgInterval);
 }
 
-export function calculateWordFrequencies(messages: Message[]): WordFrequency[] {
-  const nonSystemMessages = messages.filter(m => !m.isSystemMessage);
-  const wordCount = new Map<string, number>();
-
-  nonSystemMessages.forEach(m => {
-    let text = m.content.toLowerCase();
-    text = text.replace(URL_PATTERN, '');
-    text = text.replace(/<[^>]+>/g, '');
-    text = text.replace(/[^\p{L}\s]/gu, ' ');
-    
-    const words = text.split(/\s+/).filter(w => 
-      w.length > 1 && 
-      !PORTUGUESE_STOPWORDS.has(w) &&
-      !/^\d+$/.test(w)
-    );
-
-    words.forEach(word => {
-      wordCount.set(word, (wordCount.get(word) || 0) + 1);
-    });
-  });
-
-  const frequencies = Array.from(wordCount.entries())
-    .filter(([_, count]) => count >= 5)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 100)
-    .map(([text, count]) => ({
-      text,
-      count,
-      size: 0,
-    }));
-
-  if (frequencies.length > 0) {
-    const maxCount = frequencies[0].count;
-    const minCount = frequencies[frequencies.length - 1].count;
-    const range = maxCount - minCount || 1;
-
-    frequencies.forEach(f => {
-      f.size = 12 + ((f.count - minCount) / range) * 48;
-    });
-  }
-
-  return frequencies;
-}
 
