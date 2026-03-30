@@ -4,8 +4,7 @@ import { useFilter } from '../context/FilterContext';
 import {
   calculateSummary,
   calculateUserStats,
-  calculateHeatmap,
-  calculateWordFrequencies,
+  calculateMessageIntervals,
 } from '../utils/parser';
 
 export function useChartData(messages: Message[]) {
@@ -17,25 +16,20 @@ export function useChartData(messages: Message[]) {
   }, [messages, selectedUsers]);
 
   const summary = useMemo(() => calculateSummary(messages), [messages]);
-  
+
   const userStats = useMemo(() => calculateUserStats(messages), [messages]);
-  
+
   const filteredUserStats = useMemo(() => {
     if (selectedUsers.length === 0) return userStats;
     return userStats.filter(u => selectedUsers.includes(u.name));
   }, [userStats, selectedUsers]);
 
-  const heatmap = useMemo(() => calculateHeatmap(filteredMessages), [filteredMessages]);
-  
-
-  const wordFrequencies = useMemo(() => calculateWordFrequencies(filteredMessages), [filteredMessages]);
-  
+  const messageIntervals = useMemo(() => calculateMessageIntervals(filteredMessages), [filteredMessages]);
 
   return {
     summary,
     userStats: filteredUserStats,
     allUserStats: userStats,
-    heatmap,
-    wordFrequencies,
+    messageIntervals,
   };
 }

@@ -2,16 +2,16 @@ import { useEffect } from 'react';
 import { useChartData } from '../hooks/useChartData';
 import { SummaryStats } from './SummaryStats';
 import { TopContributors } from './TopContributors';
-import { ActivityHeatmap } from './ActivityHeatmap';
-import { WordCloud } from './WordCloud';
+import { LeastParticipative } from './LeastParticipative';
+import { OlympicPodium } from './OlympicPodium';
+import { InactivePodium } from './InactivePodium';
+import { MessageIntervals } from './MessageIntervals';
 import { FilterControls } from './FilterControls';
 import { ThemeToggle } from './ThemeToggle';
 import { LoadingProgress } from './LoadingProgress';
 import { DataImportPanel } from './DataImportPanel';
 import { useDataSource } from '../context/DataSourceContext';
 import { useFilter } from '../context/FilterContext';
-import { UserDetailsPanel } from './UserDetailsPanel';
-import { OlympicPodium } from './OlympicPodium';
 
 export function Dashboard() {
   const { messages, loading, error, progress, groupName, datasetId } = useDataSource();
@@ -56,30 +56,34 @@ export function Dashboard() {
         <DataImportPanel />
         <FilterControls />
 
-        <UserDetailsPanel allUserStats={chartData.allUserStats} />
-        
+        {/* SummaryStats — full width */}
         <div className="chart-section">
           <SummaryStats data={chartData.summary} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Podiums side-by-side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="chart-section">
             <OlympicPodium data={chartData.userStats} />
           </div>
-          <div className="chart-section lg:col-span-2">
+          <div className="chart-section">
+            <InactivePodium data={chartData.userStats} />
+          </div>
+        </div>
+
+        {/* Bar charts side-by-side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="chart-section">
             <TopContributors data={chartData.userStats} />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
           <div className="chart-section">
-            <ActivityHeatmap data={chartData.heatmap} />
+            <LeastParticipative data={chartData.userStats} />
           </div>
         </div>
 
-
+        {/* MessageIntervals — full width */}
         <div className="chart-section">
-          <WordCloud data={chartData.wordFrequencies} />
+          <MessageIntervals data={chartData.messageIntervals} />
         </div>
       </main>
 

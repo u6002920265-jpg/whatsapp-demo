@@ -169,7 +169,7 @@ export function OlympicPodium({ data }: OlympicPodiumProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        🏆 Pódio Olímpico
+        🏆 Pódio dos Mais Ativos
       </h2>
       
       <div className="flex justify-center items-end pt-8 pb-4">

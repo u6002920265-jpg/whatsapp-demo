@@ -4,23 +4,25 @@ import type { UserStats } from '../types';
 import { useFilter } from '../context/FilterContext';
 import { getUserColor } from '../utils/colorScale';
 
-interface TopContributorsProps {
+interface LeastParticipativeProps {
   data: UserStats[];
 }
 
-export function TopContributors({ data }: TopContributorsProps) {
+export function LeastParticipative({ data }: LeastParticipativeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { toggleUser, selectedUsers } = useFilter();
 
+  const bottom10 = [...data].sort((a, b) => a.messageCount - b.messageCount).slice(0, 10);
+
   useEffect(() => {
-    if (!svgRef.current || !containerRef.current || data.length === 0) return;
+    if (!svgRef.current || !containerRef.current || bottom10.length === 0) return;
 
     const container = containerRef.current;
     const width = container.clientWidth;
     const barHeight = 35;
     const margin = { top: 20, right: 60, bottom: 40, left: 150 };
-    const height = Math.max(400, data.length * barHeight + margin.top + margin.bottom);
+    const height = Math.max(400, bottom10.length * barHeight + margin.top + margin.bottom);
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -32,14 +34,14 @@ export function TopContributors({ data }: TopContributorsProps) {
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const maxValue = d3.max(data, d => d.messageCount) || 0;
+    const maxValue = d3.max(bottom10, d => d.messageCount) || 0;
 
     const xScale = d3.scaleLinear()
       .domain([0, maxValue * 1.1])
       .range([0, chartWidth]);
 
     const yScale = d3.scaleBand()
-      .domain(data.map(d => d.name))
+      .domain(bottom10.map(d => d.name))
       .range([0, chartHeight])
       .padding(0.3);
 
@@ -57,7 +59,7 @@ export function TopContributors({ data }: TopContributorsProps) {
       .on('click', (_, name) => toggleUser(name as string));
 
     g.selectAll('.bar')
-      .data(data)
+      .data(bottom10)
       .enter()
       .append('rect')
       .attr('x', 0)
@@ -70,7 +72,7 @@ export function TopContributors({ data }: TopContributorsProps) {
       .on('click', (_, d) => toggleUser(d.name));
 
     g.selectAll('.label')
-      .data(data)
+      .data(bottom10)
       .enter()
       .append('text')
       .attr('x', d => xScale(d.messageCount) + 5)
@@ -79,12 +81,12 @@ export function TopContributors({ data }: TopContributorsProps) {
       .attr('class', 'fill-gray-700 dark:fill-gray-300 text-xs')
       .text(d => d.messageCount);
 
-  }, [data, selectedUsers, toggleUser]);
+  }, [bottom10, selectedUsers, toggleUser]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md">
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Mensagens Enviadas
+        Menos Participativos
       </h2>
       <div ref={containerRef} className="w-full overflow-x-auto">
         <svg ref={svgRef} className="w-full" />

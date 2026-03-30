@@ -15,13 +15,6 @@ export interface UserStats {
   responses: number;
 }
 
-export interface HeatmapCell {
-  dayOfWeek: number;
-  hour: number;
-  count: number;
-  topUsers: { name: string; count: number }[];
-}
-
 export interface FilterState {
   selectedUsers: string[];
 }
@@ -33,10 +26,9 @@ export interface SummaryData {
   mostActiveDay: { date: Date; count: number };
 }
 
-export interface WordFrequency {
-  text: string;
-  size: number;
-  count: number;
+export interface MessageIntervalData {
+  name: string;
+  avgInterval: number;
 }
 
 export interface ParseProgress {
@@ -45,14 +37,3 @@ export interface ParseProgress {
   percentage: number;
 }
 
-export interface ResponseTimeData {
-  name: string;
-  avgTime: number;
-  color: string;
-}
-
-export interface ThreadFlow {
-  source: string;
-  target: string;
-  value: number;
-}
