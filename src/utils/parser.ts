@@ -1,59 +1,6 @@
 import type { Message, SummaryData, UserStats, MessageIntervalData } from '../types';
 import { parseDate } from './dateUtils';
 
-const PHONE_TO_NAME: Record<string, string> = {
-  '+351 936 586 711': 'Nuno Motta',
-  '+351 962 006 169': 'Pedro Barbosa',
-  '+351 939 871 400': 'Pedro Silva',
-  '+351 919 187 448': 'Rodrigo Adão Fonseca',
-  '+351 919 241 492': 'Rodrigo Menéres',
-  '+351 919 643 070': 'Toko',
-  '+351 936 264 750': 'Zé Pedro',
-  '+351 919 385 727': 'João Fleming',
-  '+351 966 649 659': 'João Pedro',
-  '+351 939 084 981': 'Jose',
-  '+351 932 883 221': 'Lopo Vaz',
-  '+351 912 551 133': 'Miguel MC',
-  '+351 937 036 629': 'Miguel Pereira',
-  '+351 936 160 697': 'Miguel Rocha Reis',
-  '+351 967 850 292': 'Nlaranjo',
-  '+351 966 237 760': 'Nuno',
-  '+351 963 314 707': 'Nuno BritoFaro',
-  '+55 69 8115-6915': 'Antonio Carlos',
-  '+61 451 008 998': 'Armando',
-  '+351 935 710 386': 'Dinis Sottomayor',
-  '+351 913 250 069': 'Filipe Cameira',
-  '+351 939 434 275': 'Filipe Sousa Pinto',
-  '+351 937 042 033': 'Fmaquinta',
-  '+351 918 622 903': 'Francisco Fonseca',
-  '+351 962 533 908': 'Gabriel Campos',
-  '+351 930 489 882': 'Gonçalo Oliveira',
-  '+351 966 933 582': 'Gustavo Sousa',
-  '+351 912 518 239': 'JAC',
-  '+351 962 147 211': 'Colegio Cedros',
-  '+31 6 17324970': 'Colegio Cedros',
-  '+351 938 660 054': 'Ricardo Pereira',
-  '+351 918 744 791': 'Luis Gagliardini Graca',
-};
-
-const USER_ALIASES: Record<string, string> = {
-  'Carvoeiro': 'Teresa',
-  'Ligia Ribadouro': 'Ligia',
-  'Xani': 'Alexandre',
-  'Fernando Ramoa': 'Fernando',
-  'Egla Pina de Morais': 'Egla',
-  'Fatima Magro': 'Fatima',
-  'Pilhas Ribadouro': 'Pilhas',
-  'Pedro Herrera Ribadouro': 'Pedro',
-  'Isabel Ribadouro': 'Isabel',
-  'Mariza Ribadouro': 'Mariza',
-  'Mariza Fontes Ribadouro': 'Mariza',
-  'Mariza Fontes Ribadouto': 'Mariza',
-  'Hugo Ribadouro': 'Hugo',
-  'Patricia Ribadouro': 'Patricia',
-  'Jorge Cunha Ribadouro': 'Jorge',
-};
-
  function stripInvisibleMarks(input: string) {
    return input
      .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
@@ -61,15 +8,7 @@ const USER_ALIASES: Record<string, string> = {
  }
 
  function normalizeUserName(name: string) {
-  const cleaned = stripInvisibleMarks(name);
-  
-  // Check if it's a phone number first
-  if (PHONE_TO_NAME[cleaned]) {
-    return PHONE_TO_NAME[cleaned];
-  }
-  
-  // Then check user aliases
-  return USER_ALIASES[cleaned] ?? cleaned;
+  return stripInvisibleMarks(name);
  }
 const SYSTEM_PATTERNS = [
   /criou o grupo/i,

@@ -22,10 +22,11 @@ There is no comprehensive test suite — only `src/utils/parser.test.ts` exists.
 
 ### Context Providers (src/context/)
 
-The app uses three React contexts nested in `App.tsx` in this order (nesting matters — inner contexts can consume outer ones):
+The app uses four React contexts nested in `App.tsx` in this order (nesting matters — inner contexts can consume outer ones):
 1. **ThemeProvider** → light/dark mode with localStorage persistence
 2. **DataSourceProvider** → manages dataset loading (sample `public/cr.txt` or user-imported), parsing, progress, errors, and `datasetId` for cache invalidation
-3. **FilterProvider** → global user selection with memoized callbacks (prevents infinite loops) and localStorage persistence
+3. **NameMappingProvider** → maps raw sender names/phone numbers to display names; auto-populated from `src/data/contacts.json` via `applyContactDefaults()`; persisted to localStorage
+4. **FilterProvider** → global user selection with memoized callbacks (prevents infinite loops) and localStorage persistence
 
 ### Data Flow
 
@@ -57,6 +58,11 @@ All chart components use the imperative D3 pattern: a `useRef` for the SVG conta
 | `src/hooks/useChartData.ts` | Central aggregation hook used by Dashboard — applies filters then computes all chart data |
 | `src/types/index.ts` | Shared TypeScript interfaces (Message, UserStats, HeatmapCell, etc.) |
 | `src/hooks/useWhatsAppParser.ts` | Legacy hook (superseded by DataSourceContext) — only fetches+parses a URL, no import/persistence |
+| `src/utils/nameMapping.ts` | `analyzeSenders()` — detects which senders are phone numbers vs. named contacts and returns sorted `SenderInfo[]` |
+| `src/data/contacts.json` | Static phone→name lookup table (format: `{ mappings: [{ number, name }] }`) loaded at module init by `NameMappingContext` |
+| `src/components/FileDropzone.tsx` | Drag-and-drop file import UI |
+| `src/components/MappingTable.tsx` | Editable table for reviewing/overriding sender→display-name mappings |
+| `src/components/GroupAvatar.tsx` | Avatar display for group identity |
 
 ### Parsing Details
 
@@ -72,6 +78,7 @@ All chart components use the imperative D3 pattern: a `useRef` for the SVG conta
 |-----|---------|
 | `whatsapp-analytics-data-source-v1` | DataSourceContext — persists imported file raw data |
 | `whatsapp-analytics-filters` | FilterContext — persists selected user filters |
+| `whatsapp-analytics-name-mappings` | NameMappingContext — persists sender→display-name overrides |
 | `theme` | ThemeContext — persists light/dark preference |
 
 ## Deployment
