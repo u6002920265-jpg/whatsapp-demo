@@ -4,19 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WhatsApp Group Analytics Dashboard — a React + D3 application that parses WhatsApp chat exports (.txt, .json, .csv) and displays interactive visualizations with cross-filtering, theme toggle, and PDF export. UI is in Portuguese (PT-PT).
+WhatsApp Group Analytics Dashboard — a React 18 + D3 + Vite application that parses WhatsApp chat exports (.txt, .json, .csv) and displays interactive visualizations with cross-filtering, theme toggle, and PDF export. UI is in Portuguese (PT-PT). Fully client-side, no backend.
 
 ## Commands
 
 ```bash
-npm install          # Install dependencies
-npm run dev          # Start dev server at http://localhost:5173
-npm run build        # TypeScript check + Vite production build
-npm run lint         # ESLint (flat config, TS/React rules)
-npm run preview      # Serve production build locally
+npm run dev          # Vite dev server at localhost:5173
+npm run build        # tsc -b && vite build
+npm run lint         # eslint .
+npm run test         # vitest run (all tests)
+npx vitest run src/utils/parser.test.ts   # run a single test file
 ```
 
-There is no test suite. Validate changes with `npm run build` (runs `tsc -b` then Vite build) and `npm run lint`.
+There is no comprehensive test suite — only `src/utils/parser.test.ts` exists. Validate changes with `npm run build` and `npm run lint`.
 
 ## Architecture
 
@@ -29,7 +29,7 @@ The app uses three React contexts nested in `App.tsx` in this order (nesting mat
 
 ### Data Flow
 
-1. **Import**: `DataSourceContext` accepts files via `importFile()`, detects format, stores raw data in localStorage (`whatsapp-analytics-data-source-v1`), and calls parsers
+1. **Import**: `DataSourceContext` accepts files via `importFile()`, detects format, stores raw data in localStorage, and calls parsers
 2. **Parse**: `src/utils/importParsers.ts` routes to format-specific parsers; TXT uses `parseWhatsAppChat()` from `parser.ts`
 3. **Aggregate**: `useChartData` hook reads filter context and computes summary, userStats, heatmap, wordFrequencies via `useMemo`
 4. **Render**: Dashboard passes aggregated data to D3-based chart components
@@ -44,13 +44,13 @@ When the dataset changes, `DataSourceContext` generates a new `datasetId` (times
 
 ### D3 chart pattern
 
-All chart components (`TopContributors`, `ActivityHeatmap`, `WordCloud`, etc.) use the imperative D3 pattern: a `useRef` for the SVG container and a `useEffect` that calls D3 to render/update. The PDF export (`ExportPDF`) captures the `<main id="dashboard-content">` element via html2canvas + jspdf.
+All chart components use the imperative D3 pattern: a `useRef` for the SVG container and a `useEffect` that calls D3 to render/update. The PDF export (`ExportPDF`) captures the `<main id="dashboard-content">` element via html2canvas + jspdf.
 
 ### Key Files
 
 | Path | Purpose |
 |------|---------|
-| `src/utils/parser.ts` | WhatsApp TXT parser, user stats, heatmap, word cloud calculations; contains `PHONE_TO_NAME` and `USER_ALIASES` maps |
+| `src/utils/parser.ts` | WhatsApp TXT parser, user stats, heatmap, word cloud, message interval calculations; contains `PHONE_TO_NAME` and `USER_ALIASES` maps |
 | `src/utils/importParsers.ts` | Format detection + JSON/CSV parsers + group name extraction |
 | `src/utils/dateUtils.ts` | Date parsing (4 WhatsApp format patterns), PT-PT formatting, time unit helpers |
 | `src/utils/colorScale.ts` | Deterministic per-user color assignment via module-level `Map` cache (persists across re-renders, resets on page reload); D3 heatmap color scale |
@@ -80,7 +80,7 @@ Deployed on Vercel. `vercel.json` has a single rewrite rule (`/(.*)` → `/index
 
 ## Planned Changes
 
-`SPEC.md` in project root tracks upcoming feature removals (User Details Panel, Activity Heatmap, Response Time, Word Cloud, Conversation Threads) and additions (least participative users chart, message interval analysis, inactive user podium). Consult it before major refactors.
+`SPEC.md` in project root tracks upcoming feature removals (User Details Panel, Activity Heatmap, Response Time, Word Cloud, Conversation Threads) and additions (least participative users chart, message interval analysis, inactive user podium). Some of these are already implemented (`LeastParticipative`, `MessageIntervals`, `InactivePodium` components exist). Consult SPEC.md before major refactors.
 
 ## Tailwind Configuration
 
