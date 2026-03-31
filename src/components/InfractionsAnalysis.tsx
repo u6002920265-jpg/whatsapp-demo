@@ -1,5 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { Message, InfractionsResult } from '../types';
+import { useFilter } from '../context/FilterContext';
+import { resolveMessages } from '../utils/parser';
 import { StatutesEditor } from './StatutesEditor';
 import { InfractionsChart } from './InfractionsChart';
 
@@ -8,10 +10,13 @@ interface InfractionsAnalysisProps {
 }
 
 export function InfractionsAnalysis({ messages }: InfractionsAnalysisProps) {
+  const { isUserSelected } = useFilter();
   const [statutes, setStatutes] = useState('');
   const [result, setResult] = useState<InfractionsResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const resolvedMessages = useMemo(() => resolveMessages(messages), [messages]);
 
   const handleStatutesChange = useCallback((value: string) => {
     setStatutes(value);
@@ -23,7 +28,7 @@ export function InfractionsAnalysis({ messages }: InfractionsAnalysisProps) {
       return;
     }
 
-    const nonSystem = messages.filter((m) => !m.isSystemMessage);
+    const nonSystem = resolvedMessages.filter((m) => !m.isSystemMessage && isUserSelected(m.sender));
     if (nonSystem.length === 0) {
       setError('Sem mensagens para analisar.');
       return;

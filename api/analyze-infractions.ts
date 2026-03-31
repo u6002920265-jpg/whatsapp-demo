@@ -2,6 +2,30 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
+// Simple in-memory rate limiter (per-instance; resets on cold start)
+const DAILY_LIMIT = 50;
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): { limited: boolean; remaining: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now >= entry.resetAt) {
+    // New day window: midnight UTC rollover
+    const tomorrow = new Date();
+    tomorrow.setUTCHours(24, 0, 0, 0);
+    rateLimitMap.set(ip, { count: 1, resetAt: tomorrow.getTime() });
+    return { limited: false, remaining: DAILY_LIMIT - 1 };
+  }
+
+  if (entry.count >= DAILY_LIMIT) {
+    return { limited: true, remaining: 0 };
+  }
+
+  entry.count++;
+  return { limited: false, remaining: DAILY_LIMIT - entry.count };
+}
+
 const InfractionSchema = z.object({
   rule: z.string().describe('The specific rule or statute that was violated'),
   message: z.string().describe('The exact message content that triggered the infraction'),
@@ -27,6 +51,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? 'unknown';
+  const { limited, remaining } = isRateLimited(ip);
+  res.setHeader('X-RateLimit-Limit', DAILY_LIMIT);
+  res.setHeader('X-RateLimit-Remaining', remaining);
+
+  if (limited) {
+    return res.status(429).json({ error: 'Limite diário de análises atingido. Tente novamente amanhã.' });
+  }
+
   const { statutes, userMessages } = req.body as {
     statutes: string;
     userMessages: UserMessages[];
@@ -46,6 +79,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { output } = await generateText({
       model: 'anthropic/claude-sonnet-4.6',
+      providerOptions: {
+        gateway: {
+          tags: ['feature:infractions-analysis'],
+          fallback: ['google/gemini-2.5-flash'],
+        },
+      },
       output: Output.object({ schema: ResponseSchema }),
       system: `És um moderador de grupos de WhatsApp. A tua tarefa é analisar mensagens enviadas pelos membros do grupo e identificar infrações aos estatutos e boas práticas definidos.
 
@@ -58,11 +97,6 @@ Regras de severidade:
 - "medium": violação clara de uma regra (spam, irrelevância repetida, linguagem imprópria)
 - "high": violação grave (insultos, conteúdo proibido, desinformação, ataques pessoais)`,
       prompt: `## Estatutos do Grupo\n\n${statutes}\n\n## Mensagens por Utilizador\n\n${usersText}`,
-      providerOptions: {
-        gateway: {
-          tags: ['feature:infractions-analysis'],
-        },
-      },
     });
 
     return res.status(200).json(output);
