@@ -6,6 +6,7 @@ import { OlympicPodium } from './OlympicPodium';
 import { InactivePodium } from './InactivePodium';
 import { MessageIntervals } from './MessageIntervals';
 import { FilterControls } from './FilterControls';
+import { InfractionsAnalysis } from './InfractionsAnalysis';
 import { FilterProvider } from '../context/FilterContext';
 import type { Message } from '../types';
 
@@ -45,6 +46,10 @@ function DashboardContent({ messages }: DashboardProps) {
 
         <div className="chart-section">
           <MessageIntervals data={chartData.messageIntervals} />
+        </div>
+
+        <div className="chart-section">
+          <InfractionsAnalysis messages={messages} />
         </div>
       </main>
 

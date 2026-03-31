@@ -37,3 +37,17 @@ export interface ParseProgress {
   percentage: number;
 }
 
+export interface Infraction {
+  rule: string;
+  message: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+export interface UserInfractions {
+  user: string;
+  infractions: Infraction[];
+}
+
+export interface InfractionsResult {
+  results: UserInfractions[];
+}
