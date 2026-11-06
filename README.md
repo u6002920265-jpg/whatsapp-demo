@@ -73,6 +73,21 @@ Formato esperado:
 | **Response Time** | Médias de resposta por utilizador, com escala dinâmica. |
 | **Word Cloud** | Nuvem de palavras (sem stopwords PT/URLs). |
 | **Conversation Threads** | Sankey bipartido que mostra fluxo de conversas iniciador→respondedor. |
+| **Análise de Infrações** | Deteção por IA + mesa de revisão e exportação do snapshot do jogo. |
+
+---
+
+## 🎲 Snapshot do jogo
+
+Depois de correr a análise de infrações, a **Mesa de revisão** permite rever as deteções antes de as transformar num snapshot para o jogo *O Melão dos Cedros*.
+
+- Remove falsos positivos, ajusta a gravidade (baixa = 1 fita, média = 2, alta = 3) e vê o elenco a recompor-se.
+- O elenco são os **12 com mais fitas**, com desempate por infrações, mensagens e nome. Se houver menos de 12 pessoas com fitas, as vagas são preenchidas pelos membros sem infrações com mais mensagens.
+- **Privado**: nomes reais, mensagens e gravidades. **Público**: alcunhas editáveis, sem mensagens nem números.
+- Descarrega `game-data.json` ou `game-data.public.json`, com `schemaVersion`, `generatedAt` e `reviewedAt`.
+- A análise usa as **últimas 50 mensagens** de cada participante e resolve os números de telefone para os nomes de `contacts.json` antes de os enviar à IA.
+
+O contrato do snapshot está em `docs/jogo-melao-dos-cedros.md` no repositório do jogo.
 
 ---
 

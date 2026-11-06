@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const usersText = userMessages
     .map(({ user, messages }) => {
-      const sample = messages.slice(0, 50); // cap at 50 messages per user to control token usage
+      const sample = messages.slice(-50); // last 50 messages per user to keep the analysis recent and bounded
       return `--- Utilizador: ${user} ---\n${sample.map((m, i) => `[${i + 1}] ${m}`).join('\n')}`;
     })
     .join('\n\n');

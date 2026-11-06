@@ -37,10 +37,12 @@ export interface ParseProgress {
   percentage: number;
 }
 
+export type Severity = 'low' | 'medium' | 'high';
+
 export interface Infraction {
   rule: string;
   message: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: Severity;
 }
 
 export interface UserInfractions {
@@ -50,4 +52,45 @@ export interface UserInfractions {
 
 export interface InfractionsResult {
   results: UserInfractions[];
+}
+
+export interface SnapshotInfraction {
+  rule: string;
+  severity: Severity;
+  fitas: number;
+  message?: string;
+}
+
+export interface SnapshotParticipant {
+  id: string;
+  rank: number;
+  displayName: string;
+  messageCount: number;
+  fitas: number;
+  infractionCount: number;
+  selected: true;
+  fillReason: 'sem-fitas' | null;
+  infractions: SnapshotInfraction[];
+}
+
+export interface GameSnapshot {
+  schemaVersion: 1;
+  kind: 'melon-game-snapshot';
+  generatedAt: string;
+  privacy: 'private' | 'public';
+  demo: false;
+  group: { name: string; slug: string };
+  analysis: {
+    model: string;
+    window: 'last-50-messages-per-participant';
+    sampleSize: number;
+    statutesHash: string;
+    reviewedAt: string;
+  };
+  selection: {
+    criterion: 'fitas-desc';
+    tieBreakers: string[];
+    filled: number;
+  };
+  participants: SnapshotParticipant[];
 }

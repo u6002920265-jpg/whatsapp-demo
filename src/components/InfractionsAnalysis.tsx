@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import type { Message, InfractionsResult } from '../types';
 import { StatutesEditor } from './StatutesEditor';
 import { InfractionsChart } from './InfractionsChart';
+import { SnapshotExport } from './SnapshotExport';
+import { resolveContactName } from '../utils/contacts';
 
 interface InfractionsAnalysisProps {
   messages: Message[];
@@ -10,6 +12,7 @@ interface InfractionsAnalysisProps {
 export function InfractionsAnalysis({ messages }: InfractionsAnalysisProps) {
   const [statutes, setStatutes] = useState('');
   const [result, setResult] = useState<InfractionsResult | null>(null);
+  const [analysisRun, setAnalysisRun] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,11 +32,12 @@ export function InfractionsAnalysis({ messages }: InfractionsAnalysisProps) {
       return;
     }
 
-    // Aggregate messages per user
+    // Aggregate messages per user, resolving phone numbers to display names.
     const byUser = new Map<string, string[]>();
     for (const msg of nonSystem) {
-      if (!byUser.has(msg.sender)) byUser.set(msg.sender, []);
-      byUser.get(msg.sender)!.push(msg.content);
+      const user = resolveContactName(msg.sender);
+      if (!byUser.has(user)) byUser.set(user, []);
+      byUser.get(user)!.push(msg.content);
     }
 
     const userMessages = Array.from(byUser.entries()).map(([user, msgs]) => ({
@@ -58,6 +62,7 @@ export function InfractionsAnalysis({ messages }: InfractionsAnalysisProps) {
 
       const data = (await response.json()) as InfractionsResult;
       setResult(data);
+      setAnalysisRun((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
@@ -137,6 +142,7 @@ export function InfractionsAnalysis({ messages }: InfractionsAnalysisProps) {
               </span>
             </div>
             <InfractionsChart data={result.results} />
+            <SnapshotExport key={analysisRun} messages={messages} result={result} statutes={statutes} />
           </div>
         )}
 
