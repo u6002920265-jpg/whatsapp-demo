@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Protótipo — Exportação do Melão dos Cedros</title>
+<!--
+  PROTÓTIPO — descartável.
+  Pergunta: que forma deve ter o ecrã de revisão/exportação do snapshot do jogo,
+  dentro do dashboard do WhatsApp?
+  Variantes: A · Mesa de revisão | B · Triagem por cartões | C · Assistente em 3 passos
+  Troca: ?variant=A|B|C ou a barra flutuante no fundo. Dados fictícios.
+  Não é produção: sem testes, sem persistência, sem chamadas reais à IA.
+-->
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --panel: #ffffff;
+    --panel-2: #f9fafb;
+    --text: #111827;
+    --text-2: #374151;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --line-2: #d1d5db;
+    --indigo: #4f46e5;
+    --indigo-2: #4338ca;
+    --indigo-soft: #eef2ff;
+    --green: #059669;
+    --green-soft: #ecfdf5;
+    --amber: #d97706;
+    --amber-soft: #fffbeb;
+    --red: #dc2626;
+    --red-soft: #fef2f2;
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
+    --radius: 8px;
+  }
+  body.dark {
+    --bg: #111827;
+    --panel: #1f2937;
+    --panel-2: #111827;
+    --text: #f9fafb;
+    --text-2: #e5e7eb;
+    --muted: #9ca3af;
+    --line: #374151;
+    --line-2: #4b5563;
+    --indigo: #818cf8;
+    --indigo-2: #6366f1;
+    --indigo-soft: #1e1b4b;
+    --green: #34d399;
+    --green-soft: #064e3b;
+    --amber: #fbbf24;
+    --amber-soft: #451a03;
+    --red: #f87171;
+    --red-soft: #450a0a;
+    --shadow: 0 4px 10px -1px rgb(0 0 0 / .45);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-bottom: 120px; }
+  body {
+    margin: 0;
+    padding-bottom: 120px;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+  h1, h2, h3, h4, p { margin-top: 0; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+  /* ── chrome do dashboard ───────────────────────────────── */
+  .topbar { position: sticky; top: 0; z-index: 30; background: var(--panel); border-bottom: 1px solid var(--line); box-shadow: 0 1px 2px rgb(0 0 0 / .05); }
+  .topbar-inner { max-width: 1280px; margin: 0 auto; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .topbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+  .topbar h1 { margin: 0; font-size: 23px; line-height: 1.1; font-weight: 700; letter-spacing: -.015em; }
+  .member-pill { font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+  .topbar-right { display: flex; align-items: center; gap: 8px; flex: none; }
+  .icon-btn { border: 0; background: var(--panel-2); color: var(--text-2); width: 36px; height: 36px; border-radius: 8px; display: inline-grid; place-items: center; font-size: 14px; font-weight: 600; }
+  .icon-btn:hover { background: var(--line); }
+  .page { max-width: 1280px; margin: 0 auto; padding: 24px 20px 40px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--panel); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+  .stat-card h3 { margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .stat-card .value { font-size: 24px; line-height: 1.1; font-weight: 700; }
+  .stat-card .sub { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+  .chart-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--panel); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); min-width: 0; }
+  .card h2 { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 600; }
+  .card .sub { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+  .bars { display: grid; gap: 9px; margin-top: 16px; }
+  .bar-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 54px; align-items: center; gap: 10px; font-size: 12px; }
+  .bar-label { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { height: 8px; background: var(--panel-2); border-radius: 999px; overflow: hidden; }
+  .bar-track i { display: block; height: 100%; background: var(--indigo); border-radius: 999px; }
+  .bar-value { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .podium-list { display: grid; gap: 8px; margin-top: 14px; }
+  .podium-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .podium-row:last-child { border-bottom: 0; }
+  .podium-rank { font-size: 11px; font-weight: 700; color: var(--muted); }
+  .podium-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .podium-value { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .analysis-card { padding: 20px; }
+  .analysis-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .eyebrow { margin: 0 0 5px; font-size: 10px; line-height: 1; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .analysis-head h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+  .analysis-head .sub { max-width: 640px; margin-top: 6px; }
+  .analysis-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .analysis-stats { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin: 14px 0 0; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; color: var(--muted); }
+  .analysis-stats b { color: var(--text); }
+  .statutes { margin-top: 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); }
+  .statutes summary { padding: 10px 12px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+  .statutes-body { max-height: 200px; overflow: auto; padding: 0 12px 12px; font-size: 12.5px; color: var(--muted); white-space: pre-wrap; }
+  .footer { padding: 24px 20px 30px; text-align: center; font-size: 12px; color: var(--muted); }
+
+  /* ── shell do protótipo ────────────────────────────────── */
+  .proto-shell { margin-top: 18px; border: 1.5px dashed var(--line-2); border-radius: 10px; background: var(--panel-2); padding: 14px; }
+  .proto-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; min-height: 26px; }
+  .proto-tag { background: #111827; color: #fff; font-size: 9px; line-height: 1; letter-spacing: .16em; padding: 6px 7px 5px; border-radius: 3px; font-weight: 700; }
+  body.dark .proto-tag { background: #f9fafb; color: #111827; }
+  #protoStats { font-size: 11.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  #protoMessage { margin-left: auto; text-align: right; font-size: 11.5px; color: var(--muted); max-width: 46%; }
+  #variantRoot { min-width: 0; }
+
+  /* ── átomos comuns ─────────────────────────────────────── */
+  .btn { appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: 6px; padding: 8px 12px; font-size: 12.5px; font-weight: 600; line-height: 1.1; background: var(--panel); color: var(--text-2); }
+  .btn:hover { filter: brightness(.97); }
+  .btn-primary { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+  body.dark .btn-primary { color: #111827; }
+  .btn-primary:hover { background: var(--indigo-2); border-color: var(--indigo-2); filter: none; }
+  .btn-ghost { background: transparent; border-color: var(--line-2); color: var(--text-2); }
+  .btn-ghost:hover { background: var(--panel-2); }
+  .btn-danger { background: transparent; border-color: color-mix(in srgb, var(--red) 45%, transparent); color: var(--red); }
+  .btn-danger:hover { background: var(--red-soft); }
+  .btn-sm { padding: 6px 9px; font-size: 11.5px; }
+  .btn-xs { padding: 4px 7px; font-size: 10.5px; border-radius: 4px; }
+  .btn:disabled { opacity: .38; cursor: not-allowed; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .pill-green { background: var(--green-soft); color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); }
+  .pill-gray { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+  .pill-amber { background: var(--amber-soft); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+  .badge-low { background: var(--amber-soft); color: var(--amber); }
+  .badge-medium { background: color-mix(in srgb, #d97706 13%, transparent); color: #c2410c; }
+  body.dark .badge-medium { color: #fdba74; }
+  .badge-high { background: var(--red-soft); color: var(--red); }
+  .badge-selected { background: var(--green-soft); color: var(--green); }
+  .badge-fill { background: var(--amber-soft); color: var(--amber); }
+  .badge-candidate { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+  .select-sm { appearance: auto; border: 1px solid var(--line-2); background: var(--panel); color: var(--text-2); border-radius: 4px; padding: 4px 6px; font-size: 11px; }
+  .input-sm { border: 1px solid var(--line-2); background: var(--panel); color: var(--text); border-radius: 4px; padding: 5px 7px; font-size: 11.5px; width: 100%; }
+  .divider { height: 1px; background: var(--line); margin: 10px 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: 11.5px; }
+  .section-title { margin: 0 0 3px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .variant-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .variant-head h3 { margin: 0; font-size: 20px; line-height: 1.15; letter-spacing: -.01em; }
+  .variant-head .sub { max-width: 680px; margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+  .head-stats { font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; white-space: nowrap; }
+  .head-stats b { color: var(--text); font-size: 14px; }
+
+  /* ── variante A: ledger ────────────────────────────────── */
+  .ledger { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  table.ledger-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .ledger-table th { position: sticky; top: 0; z-index: 1; text-align: left; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); background: var(--panel-2); padding: 8px 9px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .ledger-table td { padding: 8px 9px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .ledger-table tbody tr:hover { background: var(--panel-2); }
+  .ledger-table tbody tr.is-candidate { color: var(--muted); }
+  .ledger-table tbody tr.is-candidate .who { font-weight: 500; }
+  .ledger-table .rank { width: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .who { font-weight: 600; white-space: nowrap; }
+  .who-sub { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); }
+  .fitas-cell { display: grid; gap: 4px; min-width: 92px; }
+  .fitas-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .fitas-bar { height: 4px; background: var(--panel-2); border-radius: 999px; overflow: hidden; }
+  .fitas-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), var(--red)); border-radius: 999px; }
+  .row-detail td { background: var(--panel-2); padding: 10px 12px 12px; }
+  .inf-list { display: grid; gap: 7px; }
+  .inf-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+  .inf-row.is-removed { opacity: .48; }
+  .inf-rule { font-weight: 600; font-size: 12px; }
+  .inf-message { margin: 2px 0 0; font-size: 11.5px; color: var(--muted); font-style: italic; }
+  .inf-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .row-toggle { border: 1px solid var(--line-2); background: transparent; color: var(--muted); border-radius: 4px; padding: 3px 6px; font-size: 10px; white-space: nowrap; }
+  .row-toggle:hover { color: var(--text); background: var(--panel-2); }
+  .table-hint { margin: 8px 2px 0; font-size: 11px; color: var(--muted); }
+  .snapshot-panel { position: sticky; top: 82px; display: grid; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .snapshot-panel h4 { margin: 0; font-size: 14px; }
+  .snapshot-meta { display: flex; gap: 8px; flex-wrap: wrap; font-size: 10.5px; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 6px; padding: 2px; background: var(--panel-2); }
+  .seg button { border: 0; background: transparent; color: var(--muted); padding: 5px 9px; font-size: 11px; font-weight: 600; border-radius: 4px; }
+  .seg button.active { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+  .top12 { display: grid; gap: 4px; }
+  .top12-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 7px; align-items: center; font-size: 11.5px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .top12-row:last-child { border-bottom: 0; }
+  .top12-rank { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .top12-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top12-fitas { color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .alias-input { max-width: 100%; }
+  .candidate-list { display: grid; gap: 3px; font-size: 11px; color: var(--muted); }
+  .candidate-row { display: flex; justify-content: space-between; gap: 8px; }
+  .json-preview { margin: 0; font: 10px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 9px; max-height: 190px; overflow: auto; white-space: pre; color: var(--text-2); }
+  .export-actions { display: grid; gap: 6px; }
+
+  /* ── variante B: triagem ───────────────────────────────── */
+  .triage { display: grid; grid-template-columns: 230px minmax(0, 1fr) 290px; gap: 14px; align-items: start; }
+  .triage-rail, .triage-export { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  .triage-rail h4, .triage-export h4 { margin: 0 0 8px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .rail-list { display: grid; gap: 3px; }
+  .rail-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; align-items: center; width: 100%; border: 1px solid transparent; background: transparent; color: var(--text-2); border-radius: 5px; padding: 6px 5px; text-align: left; font-size: 11.5px; }
+  .rail-item:hover { background: var(--panel-2); }
+  .rail-item.is-current { background: var(--indigo-soft); border-color: color-mix(in srgb, var(--indigo) 28%, transparent); color: var(--text); }
+  .rail-item.is-candidate { opacity: .62; }
+  .rail-rank { color: var(--muted); font-size: 9.5px; font-variant-numeric: tabular-nums; }
+  .rail-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .rail-item.is-candidate .rail-name { font-weight: 500; }
+  .rail-fitas { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .rail-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); display: inline-block; margin-left: 3px; }
+  .triage-main { min-width: 0; }
+  .focus-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .focus-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .focus-head h3 { margin: 0; font-size: 24px; line-height: 1.05; letter-spacing: -.015em; }
+  .focus-kicker { margin: 0 0 4px; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .focus-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+  .inf-card { border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 11px; margin-bottom: 9px; }
+  .inf-card:last-child { margin-bottom: 0; }
+  .inf-card.is-removed { opacity: .5; background: var(--panel-2); }
+  .inf-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .inf-card h4 { margin: 0; font-size: 14px; line-height: 1.2; }
+  .inf-card .quote { margin: 6px 0 9px; font-size: 12px; color: var(--muted); font-style: italic; border-left: 2px solid var(--line-2); padding-left: 9px; }
+  .inf-card-actions { display: flex; gap: 6px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .inf-card-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .focus-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+  .triage-export { display: grid; gap: 11px; }
+  .mini-ranking { display: grid; gap: 3px; font-size: 11px; color: var(--muted); }
+  .mini-ranking div { display: flex; justify-content: space-between; gap: 8px; }
+  .mini-ranking b { color: var(--text-2); font-weight: 600; }
+  .review-progress { font-size: 11px; color: var(--muted); }
+  .alias-list { display: grid; gap: 5px; }
+  .alias-row { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 6px; align-items: center; font-size: 10.5px; color: var(--muted); }
+
+  /* ── variante C: assistente ────────────────────────────── */
+  .wizard { max-width: 920px; margin: 0 auto; }
+  .stepper { display: flex; gap: 0; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .stepper button { flex: 1; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); padding: 11px 12px; font-size: 11.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px; }
+  .stepper button:last-child { border-right: 0; }
+  .stepper button.is-active { background: var(--indigo-soft); color: var(--indigo); }
+  .stepper button.is-done { color: var(--green); }
+  .stepper .step-num { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; border: 1px solid currentColor; font-size: 10px; }
+  .wizard-body { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+  .wizard-body h3 { margin: 0; font-size: 25px; line-height: 1.08; letter-spacing: -.015em; }
+  .wizard-body .lead { max-width: 700px; margin: 6px 0 16px; color: var(--muted); font-size: 13px; }
+  .inbox-card { border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); padding: 16px; }
+  .inbox-meta { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 9px; }
+  .inbox-card h4 { margin: 0 0 5px; font-size: 20px; line-height: 1.1; }
+  .inbox-quote { margin: 8px 0 14px; padding-left: 12px; border-left: 3px solid var(--line-2); font-size: 13px; color: var(--muted); font-style: italic; }
+  .inbox-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+  .progress-track { height: 5px; background: var(--line); border-radius: 999px; overflow: hidden; margin: 15px 0 6px; }
+  .progress-track i { display: block; height: 100%; background: var(--indigo); border-radius: 999px; transition: width .2s ease; }
+  .review-summary { border: 1px solid var(--line); border-radius: 8px; padding: 18px; background: var(--panel-2); }
+  .review-summary h4 { margin: 0 0 4px; font-size: 18px; }
+  .review-summary .big { font-size: 30px; font-weight: 700; line-height: 1; margin: 8px 0; }
+  .review-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+  .review-grid div { border: 1px solid var(--line); border-radius: 6px; padding: 9px; background: var(--panel); }
+  .review-grid b { display: block; font-size: 19px; }
+  .review-grid span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .selected-list, .candidate-section { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .selected-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 11px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .selected-row:last-child { border-bottom: 0; }
+  .selected-row.is-candidate { background: var(--panel-2); color: var(--muted); }
+  .selected-rank { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .selected-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .selected-row.is-candidate .selected-name { font-weight: 500; }
+  .selected-fitas { color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .export-card { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: var(--panel); min-width: 0; }
+  .export-card.is-public { background: var(--panel-2); }
+  .export-card h4 { margin: 0 0 3px; font-size: 15px; }
+  .export-card .desc { margin: 0 0 10px; font-size: 11.5px; color: var(--muted); }
+  .export-card .json-preview { max-height: 210px; }
+  .wizard-footer { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .wizard-footer .right { display: flex; gap: 7px; flex-wrap: wrap; }
+  .all-infractions { margin-top: 12px; }
+  .all-infractions-list { max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; margin-top: 8px; }
+  .all-infractions-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 9px; border-bottom: 1px solid var(--line); font-size: 11.5px; }
+  .all-infractions-row:last-child { border-bottom: 0; }
+  .all-infractions-row.is-removed { opacity: .45; }
+  .all-infractions-person { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+
+  .ledger, .ledger-main, .snapshot-panel, .triage, .triage-main, .triage-rail, .triage-export,
+  .focus-card, .export-grid, .export-card, .wizard, .wizard-body, .card, .proto-shell,
+  #variantRoot, .table-wrap, .selected-list, .all-infractions-list { min-width: 0; }
+  .json-preview { max-width: 100%; }
+  .ledger-table { min-width: 680px; }
+  .top12, .top12-row, .top12-name, .top12-fitas, .candidate-list, .candidate-row,
+  .rail-name, .selected-name, .bar-label, .podium-name,
+  .snapshot-panel > *, .triage-export > *, .export-card > *, .wizard-body > * { min-width: 0; }
+
+  /* ── switcher flutuante ────────────────────────────────── */
+  .switcher { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 999; display: flex; align-items: center; gap: 4px; background: #111827; color: #fff; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; padding: 5px; box-shadow: 0 12px 30px rgb(0 0 0 / .28); }
+  .switcher button { width: 30px; height: 30px; display: inline-grid; place-items: center; border: 0; background: transparent; color: #fff; border-radius: 50%; font-size: 15px; line-height: 1; }
+  .switcher button:hover { background: rgba(255,255,255,.14); }
+  #switcherLabel { font-size: 11.5px; font-weight: 600; letter-spacing: .02em; padding: 0 10px; white-space: nowrap; }
+  .switcher .kbd { font-size: 9px; color: rgba(255,255,255,.5); letter-spacing: .06em; padding-right: 4px; }
+  .toast { position: fixed; left: 20px; bottom: 20px; z-index: 998; background: #111827; color: #fff; border-radius: 6px; padding: 9px 12px; font-size: 11.5px; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .2s ease; max-width: 360px; }
+  .toast.is-on { opacity: 1; }
+
+  @media (max-width: 1120px) {
+    .ledger { grid-template-columns: 1fr; }
+    .snapshot-panel { position: static; }
+    .triage { grid-template-columns: 210px minmax(0, 1fr); }
+    .triage-export { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+    .triage-export > h4 { grid-column: 1 / -1; }
+  }
+  @media (max-width: 860px) {
+    .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .chart-grid { grid-template-columns: 1fr; }
+    .triage { grid-template-columns: 1fr; }
+    .triage-rail { max-height: 280px; overflow: auto; }
+    .triage-export { grid-template-columns: 1fr; }
+    .export-grid { grid-template-columns: 1fr; }
+    .review-grid { grid-template-columns: 1fr 1fr 1fr; }
+    .topbar h1 { font-size: 20px; }
+  }
+  @media (max-width: 600px) {
+    .topbar-inner { padding: 12px 14px; }
+    .page { padding: 16px 14px 32px; }
+    .summary-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card { padding: 12px; }
+    .stat-card .value { font-size: 20px; }
+    .proto-strip { align-items: flex-start; }
+    #protoMessage { max-width: 100%; margin-left: 0; text-align: left; flex-basis: 100%; }
+    .bar-row { grid-template-columns: 86px minmax(0, 1fr) 48px; }
+    .stepper button { font-size: 10px; padding: 9px 5px; }
+    .wizard-body { padding: 14px; }
+    .wizard-body h3 { font-size: 21px; }
+    .review-grid { grid-template-columns: 1fr; }
+    .switcher { bottom: 10px; }
+    #switcherLabel { font-size: 10.5px; padding: 0 6px; }
+    .switcher .kbd { display: none; }
+    .toast { left: 10px; right: 10px; bottom: 64px; max-width: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <h1>A Nossa Turma</h1>
+      <span class="member-pill">40 membros</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-primary btn-sm" type="button" onclick="toast('Protótipo: o PDF não é gerado.')">Exportar PDF</button>
+      <button class="icon-btn" type="button" title="Ajuda (protótipo)" onclick="toast('Protótipo: o modal de ajuda não faz parte desta pergunta.')">?</button>
+      <button class="icon-btn" type="button" id="themeBtn" title="Alternar tema">Tema</button>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <div class="summary-grid">
+    <div class="stat-card"><h3>Total de Mensagens</h3><div class="value">15 595</div><p class="sub">desde 18/02/2022</p></div>
+    <div class="stat-card"><h3>Participantes</h3><div class="value">40</div><p class="sub">membros do grupo</p></div>
+    <div class="stat-card"><h3>Período</h3><div class="value" style="font-size:17px">18/02/2022 – 30/03/2026</div><p class="sub">4 anos de conversa</p></div>
+    <div class="stat-card"><h3>Dia Mais Ativo</h3><div class="value" style="font-size:19px">21/02/2026</div><p class="sub">184 mensagens</p></div>
+  </div>
+
+  <div class="chart-grid">
+    <section class="card">
+      <h2>Top Contributors</h2>
+      <p class="sub">Mensagens enviadas · top 6</p>
+      <div class="bars" id="topBars"></div>
+    </section>
+    <section class="card">
+      <h2>Pódio de mensagens</h2>
+      <p class="sub">Quem mais falou no grupo</p>
+      <div class="podium-list" id="podiumList"></div>
+    </section>
+  </div>
+
+  <section class="card analysis-card">
+    <div class="analysis-head">
+      <div>
+        <p class="eyebrow">Análise de Infrações</p>
+        <h2>Revisão e exportação do snapshot</h2>
+        <p class="sub muted">A IA detetou as infrações; o anfitrião revê, ajusta e exporta o ficheiro que o jogo vai ler.</p>
+      </div>
+      <div class="analysis-actions">
+        <span class="pill pill-green">Análise concluída</span>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="toast('Protótipo: a análise não é reexecutada.')">Reanalisar</button>
+      </div>
+    </div>
+
+    <details class="statutes">
+      <summary>Estatutos do grupo (10 regras)</summary>
+      <div class="statutes-body">1. Respeito mútuo — toda a comunicação deve ser respeitosa e cordial.
+2. Relevância das mensagens — as mensagens devem ser relevantes para o tema do grupo.
+3. Proibição de spam — mensagens repetidas, correntes e publicidade não autorizada.
+4. Privacidade — não partilhar informações pessoais sem consentimento.
+5. Fake news — não partilhar informação falsa ou não verificada.
+6. Linguagem adequada — uso excessivo de linguagem imprópria é desencorajado.
+7. Conteúdo inapropriado — proibido conteúdo pornográfico, violento ou discriminatório.
+8. Discussões políticas/religiosas — debates inflamados são proibidos.
+9. Inundação de mensagens — não enviar muitas mensagens curtas seguidas.
+10. Respeito pelos administradores — as decisões devem ser respeitadas.</div>
+    </details>
+
+    <div class="analysis-stats">
+      <span><b>36</b> infrações detetadas</span>
+      <span><b>11</b> utilizadores envolvidos</span>
+      <span>últimas <b>50</b> mensagens por participante</span>
+      <span>Claude Sonnet · AI Gateway</span>
+    </div>
+
+    <div class="proto-shell">
+      <div class="proto-strip">
+        <span class="proto-tag">PROTÓTIPO</span>
+        <span class="pill pill-gray" style="font-size:9px">dados fictícios</span>
+        <span id="protoStats"></span>
+        <span id="protoMessage" role="status"></span>
+      </div>
+      <div id="variantRoot"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">WhatsApp Group Analytics Dashboard · protótipo descartável · dados fictícios</footer>
+
+<div class="switcher" aria-label="Trocar de variante do protótipo">
+  <button type="button" data-switch="-1" aria-label="Variante anterior">←</button>
+  <span id="switcherLabel">A · Mesa de revisão</span>
+  <span class="kbd">← →</span>
+  <button type="button" data-switch="1" aria-label="Variante seguinte">→</button>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* Dados fictícios derivados do exemplo do jogo; nenhum nome real do grupo. */
+const BASE_PARTICIPANTS = [
+  {
+    "id": "p01",
+    "name": "Marta Salgueiro",
+    "messages": 864,
+    "infractions": [
+      {
+        "id": "p01-i0",
+        "rule": "Relevância das mensagens",
+        "severity": "low",
+        "message": "Alguém sabe se o café da esquina ainda abre ao domingo?"
+      },
+      {
+        "id": "p01-i1",
+        "rule": "Linguagem adequada",
+        "severity": "low",
+        "message": "Isto está a ficar uma confusão do caraças."
+      },
+      {
+        "id": "p01-i2",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Quatro mensagens seguidas sobre o mesmo jantar."
+      },
+      {
+        "id": "p01-i3",
+        "rule": "Discussões políticas/religiosas",
+        "severity": "medium",
+        "message": "A conversa descambou para um debate político."
+      },
+      {
+        "id": "p01-i4",
+        "rule": "Proibição de spam",
+        "severity": "high",
+        "message": "Link promocional repetido três vezes."
+      },
+      {
+        "id": "p01-i5",
+        "rule": "Respeito mútuo",
+        "severity": "high",
+        "message": "Resposta seca e pessoal a outro membro."
+      }
+    ]
+  },
+  {
+    "id": "p02",
+    "name": "Duarte Nogueira",
+    "messages": 741,
+    "infractions": [
+      {
+        "id": "p02-i0",
+        "rule": "Linguagem adequada",
+        "severity": "low",
+        "message": "Palavrão isolado numa resposta."
+      },
+      {
+        "id": "p02-i1",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Cinco mensagens curtas em menos de um minuto."
+      },
+      {
+        "id": "p02-i2",
+        "rule": "Relevância das mensagens",
+        "severity": "medium",
+        "message": "Conversa de futebol num tópico sobre o jantar."
+      },
+      {
+        "id": "p02-i3",
+        "rule": "Discussões políticas/religiosas",
+        "severity": "medium",
+        "message": "Comentário político fora de contexto."
+      },
+      {
+        "id": "p02-i4",
+        "rule": "Proibição de spam",
+        "severity": "high",
+        "message": "Corrente reenviada para o grupo."
+      }
+    ]
+  },
+  {
+    "id": "p03",
+    "name": "Inês Carvalho",
+    "messages": 612,
+    "infractions": [
+      {
+        "id": "p03-i0",
+        "rule": "Relevância das mensagens",
+        "severity": "low",
+        "message": "Mensagem fora do tema do grupo."
+      },
+      {
+        "id": "p03-i1",
+        "rule": "Linguagem adequada",
+        "severity": "low",
+        "message": "Tom menos cordial numa discussão."
+      },
+      {
+        "id": "p03-i2",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Várias mensagens seguidas sem resposta."
+      },
+      {
+        "id": "p03-i3",
+        "rule": "Fake news",
+        "severity": "medium",
+        "message": "Notícia partilhada sem fonte."
+      },
+      {
+        "id": "p03-i4",
+        "rule": "Proibição de spam",
+        "severity": "high",
+        "message": "Publicidade a um negócio pessoal."
+      }
+    ]
+  },
+  {
+    "id": "p04",
+    "name": "Rui Almeida",
+    "messages": 538,
+    "infractions": [
+      {
+        "id": "p04-i0",
+        "rule": "Relevância das mensagens",
+        "severity": "low",
+        "message": "Assunto completamente diferente."
+      },
+      {
+        "id": "p04-i1",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Sequência de mensagens sobre o mesmo vídeo."
+      },
+      {
+        "id": "p04-i2",
+        "rule": "Discussões políticas/religiosas",
+        "severity": "medium",
+        "message": "Debate político prolongado."
+      },
+      {
+        "id": "p04-i3",
+        "rule": "Proibição de spam",
+        "severity": "high",
+        "message": "Mensagem promocional repetida."
+      }
+    ]
+  },
+  {
+    "id": "p05",
+    "name": "Sofia Braga",
+    "messages": 495,
+    "infractions": [
+      {
+        "id": "p05-i0",
+        "rule": "Linguagem adequada",
+        "severity": "low",
+        "message": "Comentário com calão."
+      },
+      {
+        "id": "p05-i1",
+        "rule": "Relevância das mensagens",
+        "severity": "medium",
+        "message": "Conversa paralela durante um aviso."
+      },
+      {
+        "id": "p05-i2",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Muitas mensagens curtas seguidas."
+      },
+      {
+        "id": "p05-i3",
+        "rule": "Fake news",
+        "severity": "medium",
+        "message": "Informação não verificada sobre saúde."
+      }
+    ]
+  },
+  {
+    "id": "p06",
+    "name": "Tomás Vieira",
+    "messages": 452,
+    "infractions": [
+      {
+        "id": "p06-i0",
+        "rule": "Relevância das mensagens",
+        "severity": "low",
+        "message": "Mensagem fora do assunto."
+      },
+      {
+        "id": "p06-i1",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Quatro mensagens em sequência."
+      },
+      {
+        "id": "p06-i2",
+        "rule": "Proibição de spam",
+        "severity": "high",
+        "message": "Divulgação repetida de um evento."
+      }
+    ]
+  },
+  {
+    "id": "p07",
+    "name": "Helena Pires",
+    "messages": 398,
+    "infractions": [
+      {
+        "id": "p07-i0",
+        "rule": "Linguagem adequada",
+        "severity": "low",
+        "message": "Resposta com tom agressivo."
+      },
+      {
+        "id": "p07-i1",
+        "rule": "Relevância das mensagens",
+        "severity": "medium",
+        "message": "Assunto alheio ao propósito do grupo."
+      },
+      {
+        "id": "p07-i2",
+        "rule": "Discussões políticas/religiosas",
+        "severity": "medium",
+        "message": "Comentário religioso polémico."
+      }
+    ]
+  },
+  {
+    "id": "p08",
+    "name": "Vasco Lima",
+    "messages": 344,
+    "infractions": [
+      {
+        "id": "p08-i0",
+        "rule": "Relevância das mensagens",
+        "severity": "low",
+        "message": "Mensagem sem relação com o tópico."
+      },
+      {
+        "id": "p08-i1",
+        "rule": "Proibição de spam",
+        "severity": "high",
+        "message": "Corrente com pedido de reenvio."
+      }
+    ]
+  },
+  {
+    "id": "p09",
+    "name": "Beatriz Sousa",
+    "messages": 301,
+    "infractions": [
+      {
+        "id": "p09-i0",
+        "rule": "Linguagem adequada",
+        "severity": "low",
+        "message": "Comentário menos próprio."
+      },
+      {
+        "id": "p09-i1",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Três mensagens seguidas."
+      }
+    ]
+  },
+  {
+    "id": "p10",
+    "name": "João Peixoto",
+    "messages": 276,
+    "infractions": [
+      {
+        "id": "p10-i0",
+        "rule": "Inundação de mensagens",
+        "severity": "medium",
+        "message": "Mensagens repetidas sobre o mesmo tema."
+      }
+    ]
+  },
+  {
+    "id": "p11",
+    "name": "Clara Mendes",
+    "messages": 254,
+    "infractions": [
+      {
+        "id": "p11-i0",
+        "rule": "Relevância das mensagens",
+        "severity": "low",
+        "message": "Mensagem fora do tema."
+      }
+    ]
+  },
+  {
+    "id": "p12",
+    "name": "André Faria",
+    "messages": 1860,
+    "infractions": []
+  },
+  {
+    "id": "p13",
+    "name": "Nuno Motta",
+    "messages": 285,
+    "infractions": []
+  },
+  {
+    "id": "p14",
+    "name": "Dinis Sottomayor",
+    "messages": 280,
+    "infractions": []
+  },
+  {
+    "id": "p15",
+    "name": "Miguel Pereira",
+    "messages": 273,
+    "infractions": []
+  }
+];
+
+const SEV = {
+  low:    { label: 'Baixa',  weight: 1, cls: 'badge-low' },
+  medium: { label: 'Média',  weight: 2, cls: 'badge-medium' },
+  high:   { label: 'Alta',   weight: 3, cls: 'badge-high' },
+};
+const VARIANTS = { A: 'Mesa de revisão', B: 'Triagem por cartões', C: 'Assistente em 3 passos' };
+const GENERATED_AT = '2026-11-06T12:00:00.000Z';
+
+const state = {
+  variant: readVariant(),
+  privacy: 'private',
+  participants: [],
+  expanded: new Set(),
+  selectedId: null,
+  visited: new Set(),
+  wizardStep: 1,
+  wizardIndex: 0,
+  queue: [],
+  wizardListOpen: false,
+  aliasOpen: false,
+  message: 'Troca de variante com ← →.',
+};
+
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+
+function readVariant() {
+  const raw = (new URLSearchParams(location.search).get('variant') || 'A').toUpperCase();
+  return VARIANTS[raw] ? raw : 'A';
+}
+
+function fitasOf(p) {
+  return p.infractions.filter((i) => i.kept).reduce((sum, i) => sum + SEV[i.severity].weight, 0);
+}
+function keptOf(p) { return p.infractions.filter((i) => i.kept).length; }
+function allFitas() { return state.participants.reduce((sum, p) => sum + fitasOf(p), 0); }
+function allKept() { return state.participants.reduce((sum, p) => sum + keptOf(p), 0); }
+function allDetected() { return state.participants.reduce((sum, p) => sum + p.infractions.length, 0); }
+function ranked() {
+  return [...state.participants].sort((a, b) =>
+    fitasOf(b) - fitasOf(a) ||
+    keptOf(b) - keptOf(a) ||
+    b.messages - a.messages ||
+    a.name.localeCompare(b.name, 'pt-PT'));
+}
+function selection() {
+  const r = ranked();
+  return { selected: r.slice(0, 12), candidates: r.slice(12) };
+}
+function rankOf(id) {
+  return ranked().findIndex((p) => p.id === id) + 1;
+}
+function byId(id) { return state.participants.find((p) => p.id === id); }
+function aliasOf(p, rank = rankOf(p.id)) { return p.alias || `Participante ${pad(rank)}`; }
+function statusOf(p) {
+  const sel = selection().selected.some((x) => x.id === p.id);
+  if (!sel) return { label: 'Candidato', cls: 'badge-candidate' };
+  if (fitasOf(p) === 0) return { label: 'Preenchimento', cls: 'badge-fill' };
+  return { label: 'No elenco', cls: 'badge-selected' };
+}
+
+function buildSnapshot(mode = 'private') {
+  const { selected } = selection();
+  const participants = selected.map((p, i) => {
+    const rank = i + 1;
+    const fitas = fitasOf(p);
+    const infractions = p.infractions.filter((inf) => inf.kept).map((inf) => ({
+      rule: inf.rule,
+      severity: inf.severity,
+      fitas: SEV[inf.severity].weight,
+      ...(mode === 'private' ? { message: inf.message } : {}),
+    }));
+    return {
+      id: p.id,
+      rank,
+      displayName: mode === 'public' ? aliasOf(p, rank) : p.name,
+      messageCount: p.messages,
+      fitas,
+      infractionCount: infractions.length,
+      selected: true,
+      fillReason: fitas === 0 ? 'sem-fitas' : null,
+      infractions,
+    };
+  });
+  return {
+    schemaVersion: 1,
+    kind: 'melon-game-snapshot',
+    generatedAt: GENERATED_AT,
+    privacy: mode,
+    demo: false,
+    group: { name: 'A nossa turma', slug: 'cedros' },
+    analysis: {
+      model: 'anthropic/claude-sonnet-4.6',
+      window: 'last-50-messages-per-participant',
+      sampleSize: 50,
+      statutesHash: 'sha256:exemplo',
+      reviewedAt: GENERATED_AT,
+    },
+    selection: {
+      criterion: 'fitas-desc',
+      tieBreakers: ['infractions-desc', 'messages-desc', 'name-asc'],
+      filled: participants.filter((p) => p.fillReason).length,
+    },
+    participants,
+  };
+}
+
+function selectionIds() { return selection().selected.map((p) => p.id); }
+function selectionDelta(before) {
+  const after = selectionIds();
+  const entered = after.filter((id) => !before.includes(id)).map((id) => byId(id)?.name).filter(Boolean);
+  const left = before.filter((id) => !after.includes(id)).map((id) => byId(id)?.name).filter(Boolean);
+  if (!entered.length && !left.length) return '';
+  const bits = [];
+  if (entered.length) bits.push(`entrou ${entered.join(', ')}`);
+  if (left.length) bits.push(`saiu ${left.join(', ')}`);
+  return ` · Elenco: ${bits.join('; ')}.`;
+}
+
+function note(text) {
+  state.message = text;
+  const el = $('#protoMessage');
+  if (el) el.textContent = text;
+}
+function toast(text) {
+  const el = $('#toast');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('is-on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('is-on'), 2600);
+}
+
+function jsonPreview(mode) {
+  return esc(JSON.stringify(buildSnapshot(mode), null, 2));
+}
+
+function downloadSnapshot(mode) {
+  const data = buildSnapshot(mode);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = mode === 'public' ? 'game-data.public.json' : 'game-data.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1200);
+  note(`Snapshot ${mode === 'public' ? 'público' : 'privado'} gerado.`);
+  toast(mode === 'public' ? 'game-data.public.json gerado.' : 'game-data.json gerado.');
+}
+
+async function copySnapshot(mode) {
+  const text = JSON.stringify(buildSnapshot(mode), null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    note('JSON copiado.');
+    toast('JSON copiado.');
+  } catch (error) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); note('JSON copiado.'); toast('JSON copiado.'); }
+    catch (e) { note('Não foi possível copiar; usa o download.'); }
+    ta.remove();
+  }
+}
+
+/* ── render ─────────────────────────────────────────────── */
+
+function render() {
+  const detected = allDetected();
+  const kept = allKept();
+  const removed = detected - kept;
+  const fitas = allFitas();
+  const selected = selection().selected.length;
+  $('#protoStats').textContent = `${detected} detetadas · ${kept} mantidas${removed ? ` · ${removed} removidas` : ''} · ${fitas} fitas · ${selected} no elenco`;
+  $('#protoMessage').textContent = state.message;
+  $('#switcherLabel').textContent = `${state.variant} · ${VARIANTS[state.variant]}`;
+  $('#variantRoot').innerHTML = state.variant === 'A' ? renderLedger() : state.variant === 'B' ? renderTriage() : renderWizard();
+}
+
+function renderHostChrome() {
+  const top = [...state.participants].sort((a, b) => b.messages - a.messages).slice(0, 6);
+  const max = top[0]?.messages || 1;
+  $('#topBars').innerHTML = top.map((p) => `
+    <div class="bar-row">
+      <span class="bar-label">${esc(p.name)}</span>
+      <div class="bar-track"><i style="width:${(p.messages / max * 100).toFixed(1)}%"></i></div>
+      <span class="bar-value">${p.messages.toLocaleString('pt-PT')}</span>
+    </div>`).join('');
+  const podium = [...state.participants].sort((a, b) => b.messages - a.messages).slice(0, 3);
+  $('#podiumList').innerHTML = podium.map((p, i) => `
+    <div class="podium-row">
+      <span class="podium-rank">${i + 1}.º</span>
+      <span class="podium-name">${esc(p.name)}</span>
+      <span class="podium-value">${p.messages.toLocaleString('pt-PT')}</span>
+    </div>`).join('');
+}
+
+/* ── A · Mesa de revisão ────────────────────────────────── */
+
+function renderLedger() {
+  const r = ranked();
+  const { selected, candidates } = selection();
+  const selectedIds = new Set(selected.map((p) => p.id));
+  const firstCandidate = r.findIndex((p) => !selectedIds.has(p.id));
+  const rows = r.map((p, index) => {
+    const fitas = fitasOf(p);
+    const kept = keptOf(p);
+    const status = statusOf(p);
+    const isCandidate = !selectedIds.has(p.id);
+    const open = state.expanded.has(p.id);
+    const section = index === firstCandidate && firstCandidate > 0
+      ? `<tr class="section-row"><td colspan="6" style="padding:7px 9px;background:var(--panel-2);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Fora do elenco · candidatos por atividade</td></tr>`
+      : '';
+    return `${section}
+      <tr class="${isCandidate ? 'is-candidate' : ''}">
+        <td class="rank">${index + 1}</td>
+        <td><span class="who">${esc(p.name)}</span><span class="who-sub">${p.messages.toLocaleString('pt-PT')} mensagens${p.alias ? ` · alcunha: ${esc(p.alias)}` : ''}</span></td>
+        <td>${kept}/${p.infractions.length}</td>
+        <td><div class="fitas-cell"><span class="fitas-num">${fitas}</span><div class="fitas-bar"><i style="width:${Math.min(100, fitas / 12 * 100)}%"></i></div></div></td>
+        <td><span class="badge ${status.cls}">${status.label}</span></td>
+        <td style="text-align:right"><button type="button" class="row-toggle" data-action="toggle-row" data-id="${p.id}" aria-expanded="${open}">${open ? 'Fechar' : 'Ver infrações'}</button></td>
+      </tr>
+      ${open ? `<tr class="row-detail"><td colspan="6">${renderInfList(p)}</td></tr>` : ''}`;
+  }).join('');
+
+  return `
+    <div class="ledger">
+      <div class="ledger-main">
+        <div class="variant-head">
+          <div>
+            <p class="eyebrow">Exportação do snapshot</p>
+            <h3>Mesa de revisão</h3>
+            <p class="sub">Tudo à vista: remove falsos positivos, muda a gravidade e vê o elenco dos 12 a recompor-se em tempo real.</p>
+          </div>
+          <div class="head-stats"><b>${allFitas()}</b> fitas · <b>${allKept()}</b> infrações</div>
+        </div>
+        <div class="table-wrap">
+          <table class="ledger-table">
+            <thead><tr><th>#</th><th>Participante</th><th>Infrações</th><th>Fitas</th><th>Elenco</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p class="table-hint">A seleção é automática: mais fitas primeiro; desempate por infrações, mensagens e nome. Os candidatos entram se alguém perder fitas.</p>
+      </div>
+      <aside class="snapshot-panel">
+        ${renderSnapshotPanel()}
+      </aside>
+    </div>`;
+}
+
+function renderInfList(p) {
+  return `<div class="inf-list">${p.infractions.map((inf) => `
+    <div class="inf-row ${inf.kept ? '' : 'is-removed'}">
+      <div>
+        <div class="inf-rule">${esc(inf.rule)} <span class="badge ${SEV[inf.severity].cls}">${SEV[inf.severity].label} · ${SEV[inf.severity].weight}</span></div>
+        <p class="inf-message">“${esc(inf.message)}”</p>
+      </div>
+      <div class="inf-controls">
+        <select class="select-sm" data-action="severity" data-pid="${p.id}" data-iid="${inf.id}" aria-label="Gravidade de ${esc(inf.rule)}">
+          ${Object.entries(SEV).map(([key, s]) => `<option value="${key}" ${inf.severity === key ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+        <button type="button" class="btn btn-xs ${inf.kept ? 'btn-danger' : 'btn-ghost'}" data-action="keep" data-pid="${p.id}" data-iid="${inf.id}">${inf.kept ? 'Remover' : 'Restaurar'}</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderSnapshotPanel() {
+  const { selected, candidates } = selection();
+  const fitas = allFitas();
+  const filled = selected.filter((p) => fitasOf(p) === 0).length;
+  const list = selected.map((p, i) => `
+    <div class="top12-row">
+      <span class="top12-rank">${i + 1}</span>
+      ${state.privacy === 'public'
+        ? `<input class="input-sm alias-input" data-action="alias" data-id="${p.id}" value="${esc(aliasOf(p, i + 1))}" aria-label="Alcunha pública de ${esc(p.name)}">`
+        : `<span class="top12-name">${esc(p.name)}</span>`}
+      <span class="top12-fitas">${fitasOf(p)} fitas</span>
+    </div>`).join('');
+  return `
+    <h4>Snapshot do jogo</h4>
+    <div class="snapshot-meta"><span>schema v1</span><span>·</span><span>12 participantes</span><span>·</span><span>${fitas} fitas</span>${filled ? `<span>·</span><span>${filled} por preenchimento</span>` : ''}</div>
+    <div class="seg" role="group" aria-label="Privacidade do snapshot">
+      <button type="button" class="${state.privacy === 'private' ? 'active' : ''}" data-action="privacy" data-mode="private">Privado</button>
+      <button type="button" class="${state.privacy === 'public' ? 'active' : ''}" data-action="privacy" data-mode="public">Público</button>
+    </div>
+    <div>
+      <p class="section-title">Elenco</p>
+      <div class="top12">${list}</div>
+    </div>
+    ${candidates.length ? `<div>
+      <p class="section-title">Fora do elenco</p>
+      <div class="candidate-list">${candidates.map((p) => `<div class="candidate-row"><span>${esc(p.name)}</span><span>${fitasOf(p)} fitas</span></div>`).join('')}</div>
+    </div>` : ''}
+    <div>
+      <p class="section-title">Pré-visualização ${state.privacy === 'public' ? 'pública' : 'privada'}</p>
+      <pre class="json-preview">${jsonPreview(state.privacy)}</pre>
+    </div>
+    <div class="export-actions">
+      <button type="button" class="btn btn-primary" data-action="download" data-mode="${state.privacy}">Descarregar snapshot ${state.privacy === 'public' ? 'público' : 'privado'}</button>
+      <button type="button" class="btn btn-ghost" data-action="copy" data-mode="${state.privacy}">Copiar JSON</button>
+      <p class="small muted" style="margin:0">Privado inclui nomes e excertos; público usa alcunhas e remove as mensagens.</p>
+    </div>`;
+}
+
+/* ── B · Triagem por cartões ────────────────────────────── */
+
+function renderTriage() {
+  const r = ranked();
+  const { selected, candidates } = selection();
+  const selectedIds = new Set(selected.map((p) => p.id));
+  const current = byId(state.selectedId) || selected[0];
+  const index = r.findIndex((p) => p.id === current?.id);
+  const visitedSelected = selected.filter((p) => state.visited.has(p.id)).length;
+  const rail = r.map((p, i) => {
+    const isCandidate = !selectedIds.has(p.id);
+    const currentCls = current?.id === p.id ? 'is-current' : '';
+    return `<button type="button" class="rail-item ${isCandidate ? 'is-candidate' : ''} ${currentCls}" data-action="select-participant" data-id="${p.id}" aria-pressed="${current?.id === p.id}">
+      <span class="rail-rank">${i + 1}</span>
+      <span class="rail-name">${esc(p.name)}${state.visited.has(p.id) ? '<i class="rail-dot" aria-label="revisto"></i>' : ''}</span>
+      <span class="rail-fitas">${fitasOf(p)}</span>
+    </button>`;
+  }).join('');
+  const status = current ? statusOf(current) : null;
+  const cards = !current ? '' : current.infractions.length === 0
+    ? `<div class="inf-card"><h4>Sem infrações</h4><p class="quote" style="border:0;padding:0;margin:6px 0 0">${status.label === 'Preenchimento' ? 'Entra no elenco por preenchimento: é o membro sem infrações com mais mensagens.' : 'Este candidato não tem infrações; não entra no elenco enquanto houver 12 pessoas com fitas.'}</p></div>`
+    : current.infractions.map((inf) => `
+      <div class="inf-card ${inf.kept ? '' : 'is-removed'}">
+        <div class="inf-card-head">
+          <div><h4>${esc(inf.rule)}</h4><p class="inf-message">“${esc(inf.message)}”</p></div>
+          <span class="badge ${SEV[inf.severity].cls}">${SEV[inf.severity].label} · ${SEV[inf.severity].weight} fitas</span>
+        </div>
+        <div class="inf-card-actions">
+          <div class="inf-card-tools">
+            <select class="select-sm" data-action="severity" data-pid="${current.id}" data-iid="${inf.id}" aria-label="Gravidade de ${esc(inf.rule)}">
+              ${Object.entries(SEV).map(([key, s]) => `<option value="${key}" ${inf.severity === key ? 'selected' : ''}>${s.label}</option>`).join('')}
+            </select>
+            <span class="small muted">${inf.kept ? 'Mantida' : 'Removida'}</span>
+          </div>
+          <button type="button" class="btn btn-xs ${inf.kept ? 'btn-danger' : 'btn-ghost'}" data-action="keep" data-pid="${current.id}" data-iid="${inf.id}">${inf.kept ? 'Remover' : 'Restaurar'}</button>
+        </div>
+      </div>`).join('');
+  const top5 = selected.slice(0, 5).map((p, i) => `<div><span>${i + 1}. ${esc(p.name)}</span><b>${fitasOf(p)} fitas</b></div>`).join('');
+  return `
+    <div class="triage">
+      <aside class="triage-rail">
+        <h4>Elenco</h4>
+        <p class="small muted" style="margin:-4px 0 8px">${selected.length} escolhidos · ${candidates.length} candidatos</p>
+        <div class="rail-list">${rail}</div>
+      </aside>
+      <section class="triage-main">
+        <div class="focus-card">
+          ${current ? `
+          <div class="focus-head">
+            <div>
+              <p class="focus-kicker">${index + 1} de ${r.length} · ${fitasOf(current)} fitas</p>
+              <h3>${esc(current.name)}</h3>
+              <div class="focus-meta">
+                <span class="badge ${status.cls}">${status.label}</span>
+                <span class="pill pill-gray">${current.messages.toLocaleString('pt-PT')} mensagens</span>
+                <span class="pill pill-gray">${keptOf(current)}/${current.infractions.length} infrações</span>
+              </div>
+            </div>
+            ${status.label === 'Candidato' ? `<span class="small muted" style="max-width:180px;text-align:right">Fora do top 12; entra se alguém perder fitas.</span>` : ''}
+          </div>
+          <div>${cards}</div>
+          <div class="focus-footer">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="triage-prev" ${index <= 0 ? 'disabled' : ''}>← Anterior</button>
+            <button type="button" class="btn btn-primary btn-sm" data-action="triage-next" ${index >= r.length - 1 ? 'disabled' : ''}>Seguinte →</button>
+          </div>` : '<p class="muted">Sem participantes.</p>'}
+        </div>
+      </section>
+      <aside class="triage-export">
+        <h4>Exportar</h4>
+        <div class="review-progress"><b>${visitedSelected}</b> de ${selected.length} participantes revistos.</div>
+        <div class="seg" role="group" aria-label="Privacidade do snapshot">
+          <button type="button" class="${state.privacy === 'private' ? 'active' : ''}" data-action="privacy" data-mode="private">Privado</button>
+          <button type="button" class="${state.privacy === 'public' ? 'active' : ''}" data-action="privacy" data-mode="public">Público</button>
+        </div>
+        <div class="small muted">${allFitas()} fitas · ${allKept()} infrações · ${selection().selected.length} no elenco</div>
+        ${state.privacy === 'public' ? renderAliasEditor() : ''}
+        <div class="export-actions">
+          <button type="button" class="btn btn-primary" data-action="download" data-mode="${state.privacy}">Descarregar snapshot</button>
+          <button type="button" class="btn btn-ghost" data-action="copy" data-mode="${state.privacy}">Copiar JSON</button>
+        </div>
+        <div>
+          <p class="section-title">Top 5</p>
+          <div class="mini-ranking">${top5}</div>
+        </div>
+        <p class="small muted" style="margin:0">A revisão é opcional; o snapshot usa sempre o que está mantido.</p>
+      </aside>
+    </div>`;
+}
+
+function renderAliasEditor() {
+  return `
+    <div>
+      <button type="button" class="btn btn-ghost btn-sm" data-action="toggle-aliases" aria-expanded="${state.aliasOpen}">${state.aliasOpen ? 'Fechar alcunhas' : 'Editar alcunhas públicas'}</button>
+      ${state.aliasOpen ? `<div class="alias-list" style="margin-top:8px">${selection().selected.map((p, i) => `
+        <div class="alias-row"><span>${i + 1}</span><input class="input-sm" data-action="alias" data-id="${p.id}" value="${esc(aliasOf(p, i + 1))}" aria-label="Alcunha pública de ${esc(p.name)}"></div>`).join('')}</div>` : ''}
+    </div>`;
+}
+
+/* ── C · Assistente em 3 passos ─────────────────────────── */
+
+function currentQueueItem() {
+  return state.queue[state.wizardIndex] || null;
+}
+
+function renderWizard() {
+  return `
+    <div class="wizard">
+      ${renderStepper()}
+      <div class="wizard-body">
+        ${state.wizardStep === 1 ? renderWizardReview() : state.wizardStep === 2 ? renderWizardRoster() : renderWizardExport()}
+      </div>
+    </div>`;
+}
+
+function renderStepper() {
+  const steps = [
+    [1, 'Revisão', 'Rever as infrações'],
+    [2, 'Elenco', 'Confirmar os 12'],
+    [3, 'Exportar', 'Gerar o snapshot'],
+  ];
+  return `<div class="stepper">${steps.map(([step, short, long]) => `
+    <button type="button" class="${state.wizardStep === step ? 'is-active' : ''} ${state.wizardStep > step ? 'is-done' : ''}" data-action="wizard-step" data-step="${step}">
+      <span class="step-num">${state.wizardStep > step ? '✓' : step}</span> ${short} <span class="small muted" style="font-weight:400">· ${long}</span>
+    </button>`).join('')}</div>`;
+}
+
+function renderWizardReview() {
+  const total = state.queue.length;
+  const done = state.wizardIndex >= total;
+  const kept = allKept();
+  const removed = allDetected() - kept;
+  if (done) {
+    return `
+      <p class="eyebrow">Passo 1 de 3</p>
+      <h3>Revisão concluída</h3>
+      <p class="lead">Decidiste sobre todas as ${total} infrações. O elenco dos 12 já reflete as tuas escolhas.</p>
+      <div class="review-summary">
+        <h4>${kept} mantidas · ${removed} removidas</h4>
+        <div class="big">${allFitas()} fitas</div>
+        <p class="small muted" style="margin:0">${selection().selected.filter((p) => fitasOf(p) === 0).length} participante(s) no elenco por preenchimento.</p>
+        <div class="review-grid">
+          <div><b>${selection().selected.length}</b><span>no elenco</span></div>
+          <div><b>${selection().candidates.length}</b><span>candidatos</span></div>
+          <div><b>${allDetected()}</b><span>detetadas</span></div>
+        </div>
+        <div class="wizard-footer">
+          <button type="button" class="btn btn-ghost" data-action="wizard-revisit">Rever outra vez</button>
+          <div class="right"><button type="button" class="btn btn-primary" data-action="wizard-step" data-step="2">Continuar para o elenco →</button></div>
+        </div>
+      </div>`;
+  }
+  const item = currentQueueItem();
+  const p = item ? byId(item.pid) : null;
+  const inf = p ? p.infractions.find((i) => i.id === item.iid) : null;
+  if (!p || !inf) {
+    return `<p class="eyebrow">Passo 1 de 3</p><h3>Sem infrações para rever</h3>
+      <div class="wizard-footer"><div></div><div class="right"><button type="button" class="btn btn-primary" data-action="wizard-step" data-step="2">Continuar →</button></div></div>`;
+  }
+  const pct = total ? (state.wizardIndex / total) * 100 : 0;
+  return `
+    <p class="eyebrow">Passo 1 de 3</p>
+    <h3>Rever as infrações</h3>
+    <p class="lead">Uma decisão de cada vez: manter a infração ou removê-la por ser um falso positivo. Podes ajustar a gravidade antes de decidir.</p>
+    <div class="inbox-card">
+      <div class="inbox-meta"><span>Infração ${state.wizardIndex + 1} de ${total}</span><span>${esc(p.name)} · ${rankOf(p.id)}.º</span></div>
+      <h4>${esc(inf.rule)}</h4>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <select class="select-sm" data-action="severity" data-pid="${p.id}" data-iid="${inf.id}" aria-label="Gravidade de ${esc(inf.rule)}">
+          ${Object.entries(SEV).map(([key, s]) => `<option value="${key}" ${inf.severity === key ? 'selected' : ''}>${s.label} · ${s.weight} fita(s)</option>`).join('')}
+        </select>
+        <span class="badge ${SEV[inf.severity].cls}">${SEV[inf.severity].label}</span>
+      </div>
+      <blockquote class="inbox-quote">“${esc(inf.message)}”</blockquote>
+      <div class="inbox-actions">
+        <button type="button" class="btn btn-primary" data-action="wizard-keep">Manter e avançar</button>
+        <button type="button" class="btn btn-danger" data-action="wizard-remove">Remover e avançar</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="wizard-prev" ${state.wizardIndex === 0 ? 'disabled' : ''}>← Anterior</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="wizard-keep-rest">Manter todas as restantes</button>
+      </div>
+      <div class="progress-track"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <p class="small muted" style="margin:0">${state.wizardIndex} de ${total} revistas · ${kept} mantidas até agora</p>
+    </div>
+    <div class="all-infractions">
+      <button type="button" class="btn btn-ghost btn-sm" data-action="toggle-wizard-list" aria-expanded="${state.wizardListOpen}">${state.wizardListOpen ? 'Esconder' : 'Ver'} todas as ${total} infrações</button>
+      ${state.wizardListOpen ? `<div class="all-infractions-list">${allInfractionRows()}</div>` : ''}
+    </div>
+    <div class="wizard-footer">
+      <span class="small muted">Podes continuar sem rever tudo; o snapshot usa o que está mantido.</span>
+      <div class="right"><button type="button" class="btn btn-primary" data-action="wizard-step" data-step="2">Continuar para o elenco →</button></div>
+    </div>`;
+}
+
+function allInfractionRows() {
+  return ranked().map((p) => p.infractions.map((inf) => `
+    <div class="all-infractions-row ${inf.kept ? '' : 'is-removed'}">
+      <div><span class="all-infractions-person">${esc(p.name)}</span><br><span class="inf-rule">${esc(inf.rule)}</span> <span class="badge ${SEV[inf.severity].cls}">${SEV[inf.severity].label}</span></div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <select class="select-sm" data-action="severity" data-pid="${p.id}" data-iid="${inf.id}" aria-label="Gravidade de ${esc(inf.rule)}">
+          ${Object.entries(SEV).map(([key, s]) => `<option value="${key}" ${inf.severity === key ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+        <button type="button" class="btn btn-xs ${inf.kept ? 'btn-danger' : 'btn-ghost'}" data-action="keep" data-pid="${p.id}" data-iid="${inf.id}">${inf.kept ? 'Remover' : 'Restaurar'}</button>
+      </div>
+    </div>`).join('')).join('');
+}
+
+function renderWizardRoster() {
+  const { selected, candidates } = selection();
+  const filled = selected.filter((p) => fitasOf(p) === 0).length;
+  return `
+    <p class="eyebrow">Passo 2 de 3</p>
+    <h3>Confirmar o elenco</h3>
+    <p class="lead">Os 12 com mais fitas. Se houver menos de 12 pessoas com fitas, as vagas restantes vão para os membros sem infrações com mais mensagens.</p>
+    <div class="selected-list">
+      ${selected.map((p, i) => `
+        <div class="selected-row">
+          <span class="selected-rank">${i + 1}</span>
+          <span><span class="selected-name">${esc(p.name)}</span> ${fitasOf(p) === 0 ? '<span class="badge badge-fill">Preenchimento</span>' : ''}<br><span class="small muted">${keptOf(p)} infrações · ${p.messages.toLocaleString('pt-PT')} mensagens</span></span>
+          <span class="selected-fitas">${fitasOf(p)} fitas</span>
+        </div>`).join('')}
+    </div>
+    ${candidates.length ? `<div style="margin-top:14px"><p class="section-title">Candidatos seguintes</p><div class="selected-list">${candidates.map((p) => `
+      <div class="selected-row is-candidate">
+        <span class="selected-rank">—</span>
+        <span><span class="selected-name">${esc(p.name)}</span><br><span class="small">${p.messages.toLocaleString('pt-PT')} mensagens</span></span>
+        <span class="selected-fitas">${fitasOf(p)} fitas</span>
+      </div>`).join('')}</div></div>` : ''}
+    <div class="review-grid" style="margin-top:14px">
+      <div><b>${selected.length}</b><span>no elenco</span></div>
+      <div><b>${allFitas()}</b><span>fitas totais</span></div>
+      <div><b>${filled}</b><span>por preenchimento</span></div>
+    </div>
+    <div class="wizard-footer">
+      <button type="button" class="btn btn-ghost" data-action="wizard-step" data-step="1">← Voltar à revisão</button>
+      <div class="right"><button type="button" class="btn btn-primary" data-action="wizard-step" data-step="3">Continuar para exportação →</button></div>
+    </div>`;
+}
+
+function renderWizardExport() {
+  const fitas = allFitas();
+  const filled = selection().selected.filter((p) => fitasOf(p) === 0).length;
+  return `
+    <p class="eyebrow">Passo 3 de 3</p>
+    <h3>Exportar o snapshot</h3>
+    <p class="lead">Dois ficheiros possíveis. O privado mantém nomes e excertos; o público usa alcunhas e remove as mensagens. O jogo lê qualquer um deles.</p>
+    <div class="export-grid">
+      <div class="export-card">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><h4>Privado</h4><p class="desc">Para jogar em casa. Nomes reais, mensagens e gravidades.</p></div><span class="badge badge-high">sensível</span></div>
+        <pre class="json-preview">${jsonPreview('private')}</pre>
+        <div class="export-actions" style="margin-top:9px">
+          <button type="button" class="btn btn-primary" data-action="download" data-mode="private">Descarregar game-data.json</button>
+          <button type="button" class="btn btn-ghost" data-action="copy" data-mode="private">Copiar JSON</button>
+        </div>
+      </div>
+      <div class="export-card is-public">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><h4>Público</h4><p class="desc">Para uma demo. Alcunhas, sem mensagens e sem números.</p></div><span class="badge badge-selected">partilhável</span></div>
+        <pre class="json-preview">${jsonPreview('public')}</pre>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="toggle-aliases" aria-expanded="${state.aliasOpen}" style="margin-top:7px">${state.aliasOpen ? 'Fechar alcunhas' : 'Editar alcunhas públicas'}</button>
+        ${state.aliasOpen ? `<div class="alias-list" style="margin:7px 0 0">${selection().selected.map((p, i) => `
+          <div class="alias-row"><span>${i + 1}</span><input class="input-sm" data-action="alias" data-id="${p.id}" value="${esc(aliasOf(p, i + 1))}" aria-label="Alcunha pública de ${esc(p.name)}"></div>`).join('')}</div>` : ''}
+        <div class="export-actions" style="margin-top:9px">
+          <button type="button" class="btn btn-primary" data-action="download" data-mode="public">Descarregar game-data.public.json</button>
+          <button type="button" class="btn btn-ghost" data-action="copy" data-mode="public">Copiar JSON</button>
+        </div>
+      </div>
+    </div>
+    <div class="review-grid">
+      <div><b>${selection().selected.length}</b><span>participantes</span></div>
+      <div><b>${fitas}</b><span>fitas</span></div>
+      <div><b>${allKept()}</b><span>infrações mantidas</span></div>
+      <div><b>${filled}</b><span>por preenchimento</span></div>
+      <div><b>36</b><span>detetadas</span></div>
+      <div><b>${allDetected() - allKept()}</b><span>removidas</span></div>
+    </div>
+    <div class="wizard-footer">
+      <button type="button" class="btn btn-ghost" data-action="wizard-step" data-step="2">← Voltar ao elenco</button>
+      <div class="right"><button type="button" class="btn btn-ghost" data-action="wizard-reset">Recomeçar revisão</button></div>
+    </div>`;
+}
+
+/* ── interação ──────────────────────────────────────────── */
+
+function init() {
+  state.participants = BASE_PARTICIPANTS.map((p) => ({
+    ...p,
+    alias: null,
+    infractions: p.infractions.map((i) => ({ ...i, kept: true })),
+  }));
+  const initial = selection().selected[0];
+  state.selectedId = initial?.id || null;
+  if (state.selectedId) state.visited.add(state.selectedId);
+  state.queue = ranked().flatMap((p) => p.infractions.map((inf) => ({ pid: p.id, iid: inf.id })));
+  renderHostChrome();
+  render();
+}
+
+function onKeep(pid, iid) {
+  const p = byId(pid);
+  const inf = p?.infractions.find((i) => i.id === iid);
+  if (!p || !inf) return;
+  const before = selectionIds();
+  inf.kept = !inf.kept;
+  const delta = selectionDelta(before);
+  note(`${inf.kept ? 'Restaurada' : 'Removida'}: ${inf.rule} (${p.name}).${delta}`);
+  render();
+}
+
+function onSeverity(pid, iid, value) {
+  const p = byId(pid);
+  const inf = p?.infractions.find((i) => i.id === iid);
+  if (!p || !inf || !SEV[value]) return;
+  const before = selectionIds();
+  inf.severity = value;
+  const delta = selectionDelta(before);
+  note(`Gravidade alterada: ${inf.rule} (${p.name}) → ${SEV[value].label}.${delta}`);
+  render();
+}
+
+function onAlias(id, value) {
+  const p = byId(id);
+  if (!p) return;
+  p.alias = value.trim() || null;
+  note(`Alcunha pública atualizada: ${p.name} → ${aliasOf(p)}.`);
+  render();
+}
+
+function onWizardAdvance(keep) {
+  const item = currentQueueItem();
+  if (!item) return;
+  const p = byId(item.pid);
+  const inf = p?.infractions.find((i) => i.id === item.iid);
+  if (!p || !inf) return;
+  const before = selectionIds();
+  inf.kept = keep;
+  state.wizardIndex += 1;
+  const delta = selectionDelta(before);
+  note(`${keep ? 'Mantida' : 'Removida'}: ${inf.rule} (${p.name}).${delta}`);
+  render();
+}
+
+function bind() {
+  $('#variantRoot').addEventListener('click', (event) => {
+    const el = event.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    if (action === 'toggle-row') {
+      const id = el.dataset.id;
+      state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id);
+      render();
+    } else if (action === 'keep') {
+      onKeep(el.dataset.pid, el.dataset.iid);
+    } else if (action === 'privacy') {
+      state.privacy = el.dataset.mode;
+      note(`Modo ${state.privacy === 'public' ? 'público' : 'privado'} selecionado.`);
+      render();
+    } else if (action === 'download') {
+      downloadSnapshot(el.dataset.mode || state.privacy);
+    } else if (action === 'copy') {
+      copySnapshot(el.dataset.mode || state.privacy);
+    } else if (action === 'select-participant') {
+      state.selectedId = el.dataset.id;
+      state.visited.add(state.selectedId);
+      note(`A rever ${byId(state.selectedId)?.name}.`);
+      render();
+    } else if (action === 'triage-prev' || action === 'triage-next') {
+      const r = ranked();
+      const i = r.findIndex((p) => p.id === state.selectedId);
+      const next = r[Math.max(0, Math.min(r.length - 1, i + (action === 'triage-next' ? 1 : -1)))];
+      if (next) { state.selectedId = next.id; state.visited.add(next.id); note(`A rever ${next.name}.`); render(); }
+    } else if (action === 'toggle-aliases') {
+      state.aliasOpen = !state.aliasOpen;
+      render();
+    } else if (action === 'wizard-step') {
+      state.wizardStep = Number(el.dataset.step) || 1;
+      note(`Passo ${state.wizardStep} de 3.`);
+      render();
+    } else if (action === 'wizard-keep') {
+      onWizardAdvance(true);
+    } else if (action === 'wizard-remove') {
+      onWizardAdvance(false);
+    } else if (action === 'wizard-prev') {
+      state.wizardIndex = Math.max(0, state.wizardIndex - 1);
+      render();
+    } else if (action === 'wizard-keep-rest') {
+      for (let i = state.wizardIndex; i < state.queue.length; i++) {
+        const item = state.queue[i];
+        const p = byId(item.pid);
+        const inf = p?.infractions.find((x) => x.id === item.iid);
+        if (inf) inf.kept = true;
+      }
+      state.wizardIndex = state.queue.length;
+      note('Todas as restantes mantidas.');
+      render();
+    } else if (action === 'wizard-revisit') {
+      state.wizardIndex = 0;
+      note('Revisão recomeçada; as decisões mantêm-se.');
+      render();
+    } else if (action === 'toggle-wizard-list') {
+      state.wizardListOpen = !state.wizardListOpen;
+      render();
+    } else if (action === 'wizard-reset') {
+      state.participants.forEach((p) => { p.alias = null; p.infractions.forEach((i) => { i.kept = true; }); });
+      state.wizardIndex = 0;
+      state.wizardStep = 1;
+      state.aliasOpen = false;
+      note('Revisão recomeçada do zero.');
+      render();
+    }
+  });
+  $('#variantRoot').addEventListener('change', (event) => {
+    const el = event.target.closest('[data-action]');
+    if (!el) return;
+    if (el.dataset.action === 'severity') onSeverity(el.dataset.pid, el.dataset.iid, el.value);
+    if (el.dataset.action === 'alias') onAlias(el.dataset.id, el.value);
+  });
+  document.querySelector('.switcher').addEventListener('click', (event) => {
+    const el = event.target.closest('[data-switch]');
+    if (!el) return;
+    cycleVariant(Number(el.dataset.switch));
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (event.key === 'ArrowLeft') { event.preventDefault(); cycleVariant(-1); }
+    if (event.key === 'ArrowRight') { event.preventDefault(); cycleVariant(1); }
+  });
+  $('#themeBtn').addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    $('#themeBtn').title = document.body.classList.contains('dark') ? 'Tema claro' : 'Tema escuro';
+  });
+}
+
+function cycleVariant(delta) {
+  const keys = Object.keys(VARIANTS);
+  const i = keys.indexOf(state.variant);
+  const next = keys[(i + delta + keys.length) % keys.length];
+  state.variant = next;
+  const url = new URL(location.href);
+  url.searchParams.set('variant', next);
+  try { history.replaceState(null, '', url); } catch (error) { /* file:// */ }
+  note(`Variante ${next}: ${VARIANTS[next]}.`);
+  render();
+}
+
+init();
+bind();
+</script>
+</body>
+</html>
