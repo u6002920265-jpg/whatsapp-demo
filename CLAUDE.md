@@ -60,6 +60,9 @@ All chart components use the imperative D3 pattern: a `useRef` for the SVG conta
 | `src/hooks/useWhatsAppParser.ts` | Legacy hook (superseded by DataSourceContext) — only fetches+parses a URL, no import/persistence |
 | `src/utils/nameMapping.ts` | `analyzeSenders()` — detects which senders are phone numbers vs. named contacts and returns sorted `SenderInfo[]` |
 | `src/data/contacts.json` | Static phone→name lookup table (format: `{ mappings: [{ number, name }] }`) loaded at module init by `NameMappingContext` |
+| `src/utils/contacts.ts` | Shared phone→display-name resolution used by chart data, analysis and snapshot export |
+| `src/components/SnapshotExport.tsx` | Review table + private/public game snapshot export (Variant A · Mesa de revisão) |
+| `src/utils/snapshot.ts` | Severity weights, fitas ranking, top-12 selection and `GameSnapshot` builder |
 | `src/components/FileDropzone.tsx` | Drag-and-drop file import UI |
 | `src/components/MappingTable.tsx` | Editable table for reviewing/overriding sender→display-name mappings |
 | `src/components/GroupAvatar.tsx` | Avatar display for group identity |
@@ -71,6 +74,15 @@ All chart components use the imperative D3 pattern: a `useRef` for the SVG conta
 - Mentions use WhatsApp's LRM-marked format `@⁨Name⁩`; plain `@` is not matched to avoid email false positives
 - Date parsing in `dateUtils.ts` handles DD/MM/YY, DD-MM-YYYY, YYYY-MM-DD, and bracket-wrapped `[DD/MM/YY]` formats
 - Portuguese stopwords in `src/utils/stopwords-pt.ts`
+
+### Analysis, name resolution and game snapshot
+
+- `InfractionsAnalysis` resolves phone senders with `src/utils/contacts.ts` before grouping messages, so the API and all downstream UIs speak in display names.
+- `api/analyze-infractions.ts` analyses the **last 50 messages per user** (`slice(-50)`), keeping the review recent and token-bounded.
+- After a result, `SnapshotExport` renders the **Mesa de revisão**: remove/restore infractions, change severity, see fitas/ranking/top-12 recompute, edit public aliases, preview JSON and download private/public snapshots.
+- Severity weights are low = 1, medium = 2, high = 3. The game roster is the top 12 by fitas; ties break by infractions, messages and name, and zero-fita members fill remaining slots by activity.
+- Snapshot contract: `schemaVersion: 1`, `kind: 'melon-game-snapshot'`, `privacy` private/public, group, analysis window/hash, selection and participants.
+- The prototype that chose this layout is on the throwaway branch `prototype/export-review`; only Variant A lives in the product.
 
 ### localStorage Keys
 
